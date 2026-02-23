@@ -1,0 +1,8 @@
+Manifest-Version: 1.0
+Build-Jdk: 1.7.0_79
+Built-By: XMage
+Created-By: Apache Maven 3.3.1
+Main-Class: com.xmage.launcher.XMageLauncher
+url: xmage.de
+Archiver-Version: Plexus Archiver
+
