@@ -273,6 +273,20 @@ public class GamePanelHandler {
             String activePlayer = callString(gameView, "getActivePlayerName");
             String phase = callString(gameView, "getPhase");
 
+            // Detect new game within the same GamePanel (turn counter resets to 1).
+            // This happens in best-of-three when the next game starts on the same panel.
+            if (turn == 1 && lastTurn > 1) {
+                lastLifeTotals.clear();
+                lastTurn = -1;
+                lastPhase = "";
+                lastActivePlayer = null;
+                lastStackSize = -1;
+                lastStackIds.clear();
+                speak("New game.");
+                triggerWindowRefresh();
+                return;
+            }
+
             // Announce turn changes (new turn = new active player's turn)
             if (turn != lastTurn && turn > 0) {
                 if (lastTurn > 0) {
