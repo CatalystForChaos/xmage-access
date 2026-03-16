@@ -76,6 +76,7 @@ public class GamePanelHandler {
     private int lastTargetCount = 0;
     private boolean lastAbilityPickerVisible = false;
     private int lastCombatGroupCount = 0;
+    private Object lastGameId = null; // UUID of the current game — changes between games in a match
 
     // Hand navigation cursor
     private int handCursorIndex = 0;
@@ -273,19 +274,31 @@ public class GamePanelHandler {
             String activePlayer = callString(gameView, "getActivePlayerName");
             String phase = callString(gameView, "getPhase");
 
-            // Detect new game within the same GamePanel (turn counter resets to 1).
-            // This happens in best-of-three when the next game starts on the same panel.
-            if (turn == 1 && lastTurn > 1) {
+            // Detect new game within the same GamePanel by watching the gameId field.
+            // XMage calls showGame() with a fresh UUID for each game in a match,
+            // so a changed gameId is the definitive signal that a new game has started.
+            Object currentGameId = findFieldDeep(gamePanel, "gameId");
+            if (currentGameId != null && !currentGameId.equals(lastGameId)) {
+                boolean isSwitch = lastGameId != null; // false on the very first game
                 lastLifeTotals.clear();
                 lastTurn = -1;
                 lastPhase = "";
                 lastActivePlayer = null;
                 lastStackSize = -1;
                 lastStackIds.clear();
-                speak("New game.");
+                lastHandSize = -1;
+                lastTargetCount = 0;
+                lastAbilityPickerVisible = false;
+                lastCombatGroupCount = 0;
+                lastFeedbackText = "";
+                lastGameId = currentGameId;
+                if (isSwitch) {
+                    speak("New game.");
+                }
                 triggerWindowRefresh();
                 return;
             }
+            lastGameId = currentGameId;
 
             // Announce turn changes (new turn = new active player's turn)
             if (turn != lastTurn && turn > 0) {
