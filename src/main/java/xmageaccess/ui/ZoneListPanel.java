@@ -8,6 +8,8 @@ import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.util.List;
 
 /**
@@ -32,6 +34,16 @@ public class ZoneListPanel extends JPanel {
 
         // Set accessible name for screen reader
         list.getAccessibleContext().setAccessibleName(zoneName);
+
+        // Suppress JList type-ahead (first-letter navigation) so it does not
+        // interfere with key shortcuts bound via InputMap (e.g. D for detail).
+        // InputMap bindings use KEY_PRESSED; type-ahead uses KEY_TYPED.
+        list.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyTyped(KeyEvent e) {
+                e.consume();
+            }
+        });
 
         // Speak zone name + item count when Tab arrives
         list.addFocusListener(new FocusAdapter() {
