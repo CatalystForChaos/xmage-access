@@ -269,10 +269,19 @@ public class AccessibleLobbyWindow extends JFrame {
             return;
         }
         int tableRow = gameRowMap.get(listIndex);
+        if (activeTable == null || tableRow >= activeTable.getRowCount()) {
+            speak("Game list has changed. Press Ctrl+G to refresh.");
+            return;
+        }
         String status = getCell(activeTable, tableRow, COL_STATUS);
         boolean waiting = status != null && status.toLowerCase().contains("waiting");
 
-        activeTable.setRowSelectionInterval(tableRow, tableRow);
+        try {
+            activeTable.setRowSelectionInterval(tableRow, tableRow);
+        } catch (IllegalArgumentException e) {
+            speak("Game list has changed. Press Ctrl+G to refresh.");
+            return;
+        }
         speak(waiting ? "Joining game." : "Watching game.");
         clickActionButton(tableRow);
     }
@@ -283,7 +292,12 @@ public class AccessibleLobbyWindow extends JFrame {
             speak("No game selected.");
             return;
         }
-        speak(buildGameDetail(gameRowMap.get(listIndex)));
+        int tableRow = gameRowMap.get(listIndex);
+        if (activeTable == null || tableRow >= activeTable.getRowCount()) {
+            speak("Game list has changed. Press Ctrl+G to refresh.");
+            return;
+        }
+        speak(buildGameDetail(tableRow));
     }
 
     private void clickActionButton(int viewRow) {
