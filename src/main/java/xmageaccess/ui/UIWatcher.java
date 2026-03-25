@@ -8,6 +8,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.AWTEventListener;
 import java.awt.event.KeyEvent;
+import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
@@ -435,6 +436,17 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
 
         // Connect handler to window for event-driven refreshes
         handler.setAccessibleWindow(window);
+
+        // Closing the accessible window wipes all cached game state in the handler.
+        // This gives the user an explicit way to force a clean slate mid-game.
+        window.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                handler.resetState();
+                System.out.println("[XMage Access] Accessible game window closed — game state reset.");
+            }
+        });
+
         System.out.println("[XMage Access] Accessible game window opened.");
     }
 
