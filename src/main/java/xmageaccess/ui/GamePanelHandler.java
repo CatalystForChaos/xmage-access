@@ -220,6 +220,10 @@ public class GamePanelHandler {
         pollTimer = new Timer(5000, e -> {
             if (!isGameVisible()) return;
             try {
+                // Re-read lastGameData each cycle: XMage may replace this object
+                // entirely when a new game starts within the same GamePanel (e.g.
+                // best-of-three), which would leave our cached reference stale.
+                lastGameData = findFieldDeep(gamePanel, "lastGameData");
                 checkFeedbackChanges();
                 checkGameStateChanges();
                 checkTargetDialogs();
