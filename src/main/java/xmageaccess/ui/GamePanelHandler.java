@@ -131,6 +131,33 @@ public class GamePanelHandler {
         }
     }
 
+    /**
+     * Resets all game state tracking fields to their initial values.
+     * Called when a new game starts within the same match so that stale
+     * turn/life/phase data is never shown for the incoming game.
+     */
+    public void resetState() {
+        lastGameData = null;
+        lastFeedbackText = "";
+        lastPhase = "";
+        lastTurn = -1;
+        lastActivePlayer = "";
+        lastLifeTotals.clear();
+        lastStackSize = -1;
+        lastStackIds.clear();
+        lastHandSize = -1;
+        lastTargetCount = 0;
+        lastAbilityPickerVisible = false;
+        lastCombatGroupCount = 0;
+        lastGameId = null;
+        handCursorIndex = 0;
+        handCards.clear();
+        bfCursorIndex = 0;
+        bfPlayerIndex = 0;
+        bfPermanents.clear();
+        bfPlayerNames.clear();
+    }
+
     private void discoverComponents() {
         helperPanel = findFieldDeep(gamePanel, "helper");
         feedbackPanel = findFieldTyped(gamePanel, "feedbackPanel", Component.class);
@@ -1640,6 +1667,9 @@ public class GamePanelHandler {
     }
 
     private Object getGameView() {
+        // Always re-read lastGameData live so keyboard commands (Ctrl+F2 etc.)
+        // never read stale data between poll cycles or between games in a match.
+        lastGameData = findFieldDeep(gamePanel, "lastGameData");
         if (lastGameData == null) return null;
         return findFieldDeep(lastGameData, "game");
     }

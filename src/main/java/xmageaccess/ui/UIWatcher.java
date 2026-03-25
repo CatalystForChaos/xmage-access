@@ -208,6 +208,24 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
         if (className.equals("mage.client.game.GamePanel")) {
             if (!attachedHandlers.containsKey(comp) && comp.isVisible()) {
                 attachGamePanel(comp);
+            } else if (comp.isVisible() && attachedHandlers.containsKey(comp)) {
+                // The panel may be reused for a new game in a match.
+                // If the accessible window was disposed (end of previous game),
+                // reset state and open a fresh window for the new game.
+                AccessibleGameWindow existingWindow = gameWindows.get(comp);
+                if (existingWindow == null || !existingWindow.isDisplayable()) {
+                    Object handler = attachedHandlers.get(comp);
+                    if (handler instanceof GamePanelHandler) {
+                        ((GamePanelHandler) handler).resetState();
+                    }
+                    AccessibleGameWindow newWindow = new AccessibleGameWindow(comp);
+                    newWindow.setVisible(true);
+                    gameWindows.put(comp, newWindow);
+                    if (handler instanceof GamePanelHandler) {
+                        ((GamePanelHandler) handler).setAccessibleWindow(newWindow);
+                    }
+                    System.out.println("[XMage Access] New game in match detected — reopened accessible game window.");
+                }
             }
         }
 
