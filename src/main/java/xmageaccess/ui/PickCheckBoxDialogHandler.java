@@ -28,6 +28,7 @@ public class PickCheckBoxDialogHandler {
     private JButton btCancel;
     private JButton btClear;
     private JTextField editSearch;
+    private KeyEventDispatcher keyDispatcher;
 
     public PickCheckBoxDialogHandler(Component dialog) {
         this.dialog = dialog;
@@ -43,7 +44,13 @@ public class PickCheckBoxDialogHandler {
         }
     }
 
-    public void detach() {}
+    public void detach() {
+        if (keyDispatcher != null) {
+            KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                    .removeKeyEventDispatcher(keyDispatcher);
+            keyDispatcher = null;
+        }
+    }
 
     private void discoverComponents() {
         Class<?> clazz = dialog.getClass();
@@ -94,8 +101,7 @@ public class PickCheckBoxDialogHandler {
     }
 
     private void addKeyboardShortcuts() {
-        KeyboardFocusManager.getCurrentKeyboardFocusManager()
-                .addKeyEventDispatcher(e -> {
+        keyDispatcher = e -> {
                     if (e.getID() != KeyEvent.KEY_PRESSED) return false;
                     if (!isDialogVisible()) return false;
 
@@ -120,7 +126,9 @@ public class PickCheckBoxDialogHandler {
                     }
 
                     return false;
-                });
+                };
+        KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                .addKeyEventDispatcher(keyDispatcher);
     }
 
     private void navigateItem(int direction) {

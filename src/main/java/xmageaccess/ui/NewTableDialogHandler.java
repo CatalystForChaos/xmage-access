@@ -29,6 +29,7 @@ public class NewTableDialogHandler {
     private final Component dialog;
     private final Map<Component, String> componentLabels = new LinkedHashMap<>();
     private FocusListener focusListener;
+    private KeyEventDispatcher keyDispatcher;
 
     // Key components we need to interact with
     private JComboBox<?> cbGameType;
@@ -80,6 +81,11 @@ public class NewTableDialogHandler {
             for (Component comp : componentLabels.keySet()) {
                 comp.removeFocusListener(focusListener);
             }
+        }
+        if (keyDispatcher != null) {
+            KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                    .removeKeyEventDispatcher(keyDispatcher);
+            keyDispatcher = null;
         }
     }
 
@@ -293,8 +299,7 @@ public class NewTableDialogHandler {
     }
 
     private void addKeyboardShortcuts() {
-        KeyboardFocusManager.getCurrentKeyboardFocusManager()
-                .addKeyEventDispatcher(e -> {
+        keyDispatcher = e -> {
                     if (e.getID() != java.awt.event.KeyEvent.KEY_PRESSED) return false;
                     if (!isDialogVisible()) return false;
                     // Don't intercept keys when sideboarding window is open
@@ -332,7 +337,9 @@ public class NewTableDialogHandler {
                     }
 
                     return false;
-                });
+                };
+        KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                .addKeyEventDispatcher(keyDispatcher);
     }
 
     /**

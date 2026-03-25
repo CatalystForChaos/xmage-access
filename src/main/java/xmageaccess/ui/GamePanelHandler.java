@@ -6,6 +6,7 @@ import xmageaccess.speech.SpeechOutput;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
+import java.awt.KeyEventDispatcher;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -52,6 +53,7 @@ public class GamePanelHandler {
 
     private final Component gamePanel;
     private Timer pollTimer;
+    private KeyEventDispatcher keyDispatcher;
 
     // Cached references found via reflection
     private Object helperPanel;        // HelperPanel
@@ -119,6 +121,14 @@ public class GamePanelHandler {
         if (pollTimer != null) {
             pollTimer.stop();
         }
+        if (keyDispatcher != null) {
+            KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                    .removeKeyEventDispatcher(keyDispatcher);
+            keyDispatcher = null;
+        }
+        if (chatHelper != null) {
+            chatHelper.detach();
+        }
     }
 
     private void discoverComponents() {
@@ -147,8 +157,7 @@ public class GamePanelHandler {
     }
 
     private void addKeyboardShortcuts() {
-        KeyboardFocusManager.getCurrentKeyboardFocusManager()
-                .addKeyEventDispatcher(e -> {
+        keyDispatcher = e -> {
                     if (e.getID() != KeyEvent.KEY_PRESSED) return false;
                     if (!isGameVisible()) return false;
 
@@ -213,7 +222,9 @@ public class GamePanelHandler {
                         }
                     }
                     return false;
-                });
+                };
+        KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                .addKeyEventDispatcher(keyDispatcher);
     }
 
     private void startPolling() {

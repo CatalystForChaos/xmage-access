@@ -25,6 +25,7 @@ public class PickChoiceDialogHandler {
     private JButton btOK;
     private JButton btCancel;
     private JTextField editSearch;
+    private KeyEventDispatcher keyDispatcher;
 
     public PickChoiceDialogHandler(Component dialog) {
         this.dialog = dialog;
@@ -41,7 +42,11 @@ public class PickChoiceDialogHandler {
     }
 
     public void detach() {
-        // Cleanup if needed
+        if (keyDispatcher != null) {
+            KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                    .removeKeyEventDispatcher(keyDispatcher);
+            keyDispatcher = null;
+        }
     }
 
     private void discoverComponents() {
@@ -90,8 +95,7 @@ public class PickChoiceDialogHandler {
     }
 
     private void addKeyboardShortcuts() {
-        KeyboardFocusManager.getCurrentKeyboardFocusManager()
-                .addKeyEventDispatcher(e -> {
+        keyDispatcher = e -> {
                     if (e.getID() != KeyEvent.KEY_PRESSED) return false;
                     if (!isDialogVisible()) return false;
 
@@ -113,7 +117,9 @@ public class PickChoiceDialogHandler {
                     }
 
                     return false;
-                });
+                };
+        KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                .addKeyEventDispatcher(keyDispatcher);
     }
 
     private void navigateChoice(int direction) {

@@ -32,8 +32,9 @@ public class LinuxSpeech implements SpeechEngine {
         }
         // Also tell speech-dispatcher to stop
         try {
-            new ProcessBuilder("spd-say", "--cancel").start();
-        } catch (IOException e) {
+            Process cancel = new ProcessBuilder("spd-say", "--cancel").start();
+            cancel.waitFor(500, java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (Exception e) {
             // Ignore - spd-say might not be available
         }
     }

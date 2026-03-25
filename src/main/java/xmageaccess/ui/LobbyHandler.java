@@ -6,6 +6,7 @@ import xmageaccess.speech.SpeechOutput;
 import javax.swing.*;
 import javax.swing.table.TableModel;
 import java.awt.*;
+import java.awt.KeyEventDispatcher;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.lang.reflect.Field;
@@ -35,6 +36,7 @@ public class LobbyHandler {
     private JTable playersTable;
     private int currentGameIndex = -1;
     private KeyListener keyListener;
+    private KeyEventDispatcher keyDispatcher;
     private ChatAccessHelper chatHelper;
 
     // Column indices for the active games table (TablesTableModel)
@@ -109,6 +111,14 @@ public class LobbyHandler {
             lobbyPanel.removeKeyListener(keyListener);
             // Also remove from tables
             if (activeTable != null) activeTable.removeKeyListener(keyListener);
+        }
+        if (keyDispatcher != null) {
+            KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                    .removeKeyEventDispatcher(keyDispatcher);
+            keyDispatcher = null;
+        }
+        if (chatHelper != null) {
+            chatHelper.detach();
         }
     }
 
@@ -220,8 +230,7 @@ public class LobbyHandler {
 
         // Add the listener globally using a toolkit listener
         // so it works regardless of which component has focus
-        KeyboardFocusManager.getCurrentKeyboardFocusManager()
-                .addKeyEventDispatcher(e -> {
+        keyDispatcher = e -> {
                     if (e.getID() != KeyEvent.KEY_PRESSED) return false;
                     if (!e.isControlDown()) return false;
                     if (!isLobbyVisible()) return false;
@@ -279,7 +288,9 @@ public class LobbyHandler {
                             return true;
                     }
                     return false;
-                });
+                };
+        KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                .addKeyEventDispatcher(keyDispatcher);
     }
 
     private boolean isLobbyVisible() {

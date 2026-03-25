@@ -34,6 +34,8 @@ public class TournamentPanelHandler {
     private int playerCursor = 0;
     private int matchCursor = 0;
     private String lastState = "";
+    private KeyEventDispatcher keyDispatcher;
+    private Timer pollTimer;
 
     public TournamentPanelHandler(Component panel) {
         this.panel = panel;
@@ -50,7 +52,17 @@ public class TournamentPanelHandler {
         }
     }
 
-    public void detach() {}
+    public void detach() {
+        if (pollTimer != null) {
+            pollTimer.stop();
+            pollTimer = null;
+        }
+        if (keyDispatcher != null) {
+            KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                    .removeKeyEventDispatcher(keyDispatcher);
+            keyDispatcher = null;
+        }
+    }
 
     private void discoverComponents() {
         Class<?> clazz = panel.getClass();
@@ -85,7 +97,7 @@ public class TournamentPanelHandler {
 
     private void startMonitoring() {
         // Poll for state changes
-        Timer timer = new Timer(3000, e -> {
+        pollTimer = new Timer(3000, e -> {
             if (!isPanelVisible()) return;
             try {
                 String state = readTextField("txtTournamentState");
@@ -95,13 +107,12 @@ public class TournamentPanelHandler {
                 if (state != null) lastState = state;
             } catch (Exception ignored) {}
         });
-        timer.setRepeats(true);
-        timer.start();
+        pollTimer.setRepeats(true);
+        pollTimer.start();
     }
 
     private void addKeyboardShortcuts() {
-        KeyboardFocusManager.getCurrentKeyboardFocusManager()
-                .addKeyEventDispatcher(e -> {
+        keyDispatcher = e -> {
                     if (e.getID() != KeyEvent.KEY_PRESSED) return false;
                     if (!isPanelVisible()) return false;
                     if (!e.isControlDown()) return false;
@@ -152,7 +163,9 @@ public class TournamentPanelHandler {
                             return true;
                     }
                     return false;
-                });
+                };
+        KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                .addKeyEventDispatcher(keyDispatcher);
     }
 
     // ========== STATUS ==========

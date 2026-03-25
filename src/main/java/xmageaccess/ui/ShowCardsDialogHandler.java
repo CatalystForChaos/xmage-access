@@ -27,6 +27,7 @@ public class ShowCardsDialogHandler {
 
     private final Component dialog;
     private int cursor = 0;
+    private KeyEventDispatcher keyDispatcher;
 
     public ShowCardsDialogHandler(Component dialog) {
         this.dialog = dialog;
@@ -41,7 +42,13 @@ public class ShowCardsDialogHandler {
         }
     }
 
-    public void detach() {}
+    public void detach() {
+        if (keyDispatcher != null) {
+            KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                    .removeKeyEventDispatcher(keyDispatcher);
+            keyDispatcher = null;
+        }
+    }
 
     private void announceCards() {
         String title = getTitle();
@@ -73,8 +80,7 @@ public class ShowCardsDialogHandler {
     }
 
     private void addKeyboardShortcuts() {
-        KeyboardFocusManager.getCurrentKeyboardFocusManager()
-                .addKeyEventDispatcher(e -> {
+        keyDispatcher = e -> {
                     if (e.getID() != KeyEvent.KEY_PRESSED) return false;
                     if (!isDialogVisible()) return false;
                     if (!e.isControlDown()) return false;
@@ -98,7 +104,9 @@ public class ShowCardsDialogHandler {
                             return true;
                     }
                     return false;
-                });
+                };
+        KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                .addKeyEventDispatcher(keyDispatcher);
     }
 
     private void navigateCards(int direction) {

@@ -33,6 +33,8 @@ public class ChatAccessHelper {
     private final List<String> messageHistory = new ArrayList<>();
     private static final int MAX_HISTORY = 50;
     private boolean monitoring = false;
+    private Document monitoredDocument;
+    private DocumentListener docListener;
 
     public ChatAccessHelper(Object chatPanel) {
         this.chatPanel = chatPanel;
@@ -59,7 +61,7 @@ public class ChatAccessHelper {
             // Monitor for new messages via document listener
             Document doc = txtConversation.getDocument();
             if (doc != null) {
-                doc.addDocumentListener(new DocumentListener() {
+                docListener = new DocumentListener() {
                     @Override
                     public void insertUpdate(DocumentEvent e) {
                         onNewContent();
@@ -68,7 +70,9 @@ public class ChatAccessHelper {
                     public void removeUpdate(DocumentEvent e) {}
                     @Override
                     public void changedUpdate(DocumentEvent e) {}
-                });
+                };
+                doc.addDocumentListener(docListener);
+                monitoredDocument = doc;
                 monitoring = true;
             }
 
@@ -78,6 +82,16 @@ public class ChatAccessHelper {
             System.err.println("[XMage Access] Chat attach error: " + e.getMessage());
             return false;
         }
+    }
+
+    /** Removes the document listener and stops monitoring. */
+    public void detach() {
+        if (monitoredDocument != null && docListener != null) {
+            monitoredDocument.removeDocumentListener(docListener);
+        }
+        monitoredDocument = null;
+        docListener = null;
+        monitoring = false;
     }
 
     public boolean isMonitoring() {

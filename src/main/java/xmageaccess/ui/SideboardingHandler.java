@@ -58,6 +58,7 @@ public class SideboardingHandler extends JFrame {
     private JButton xmageBtnSubmit;
 
     private Timer pollTimer;
+    private Timer refreshTimer;
 
     private int _lastDeckCount = -1;
     private int _lastSideboardCount = -1;
@@ -543,7 +544,10 @@ public class SideboardingHandler extends JFrame {
     }
 
     private void scheduleRefresh() {
-        Timer refreshTimer = new Timer(500, e -> {
+        if (refreshTimer != null) {
+            refreshTimer.stop();
+        }
+        refreshTimer = new Timer(500, e -> {
             refreshReferences();
             _lastDeckCount = -1;
             _lastSideboardCount = -1;

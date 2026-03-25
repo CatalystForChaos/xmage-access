@@ -34,6 +34,7 @@ public class DraftPanelHandler {
     private List<Object[]> boosterCards = new ArrayList<>(); // [MageCard, CardView]
     private Timer announceTimer;
     private int lastBoosterSize = -1;
+    private KeyEventDispatcher keyDispatcher;
 
     public DraftPanelHandler(Component draftPanel) {
         this.draftPanel = draftPanel;
@@ -54,6 +55,11 @@ public class DraftPanelHandler {
     public void detach() {
         if (announceTimer != null) {
             announceTimer.stop();
+        }
+        if (keyDispatcher != null) {
+            KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                    .removeKeyEventDispatcher(keyDispatcher);
+            keyDispatcher = null;
         }
     }
 
@@ -101,8 +107,7 @@ public class DraftPanelHandler {
     }
 
     private void addKeyboardShortcuts() {
-        KeyboardFocusManager.getCurrentKeyboardFocusManager()
-                .addKeyEventDispatcher(e -> {
+        keyDispatcher = e -> {
                     if (e.getID() != KeyEvent.KEY_PRESSED) return false;
                     if (!isPanelVisible()) return false;
                     if (!e.isControlDown()) return false;
@@ -136,7 +141,9 @@ public class DraftPanelHandler {
                         }
                     }
                     return false;
-                });
+                };
+        KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                .addKeyEventDispatcher(keyDispatcher);
     }
 
     // ========== BOOSTER NAVIGATION ==========

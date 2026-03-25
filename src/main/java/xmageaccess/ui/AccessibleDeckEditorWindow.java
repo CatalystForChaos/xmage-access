@@ -547,6 +547,7 @@ public class AccessibleDeckEditorWindow extends JFrame {
 
     @Override
     public void dispose() {
+        stopPolling();
         _activeWindows.remove(this);
         super.dispose();
     }

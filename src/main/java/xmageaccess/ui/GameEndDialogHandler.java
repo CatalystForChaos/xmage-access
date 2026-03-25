@@ -20,6 +20,7 @@ public class GameEndDialogHandler {
 
     private final Component dialog;
     private JButton btnOk;
+    private KeyEventDispatcher keyDispatcher;
 
     public GameEndDialogHandler(Component dialog) {
         this.dialog = dialog;
@@ -35,7 +36,13 @@ public class GameEndDialogHandler {
         }
     }
 
-    public void detach() {}
+    public void detach() {
+        if (keyDispatcher != null) {
+            KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                    .removeKeyEventDispatcher(keyDispatcher);
+            keyDispatcher = null;
+        }
+    }
 
     private void discoverComponents() {
         Class<?> clazz = dialog.getClass();
@@ -87,8 +94,7 @@ public class GameEndDialogHandler {
     }
 
     private void addKeyboardShortcuts() {
-        KeyboardFocusManager.getCurrentKeyboardFocusManager()
-                .addKeyEventDispatcher(e -> {
+        keyDispatcher = e -> {
                     if (e.getID() != KeyEvent.KEY_PRESSED) return false;
                     if (!isDialogVisible()) return false;
 
@@ -104,7 +110,9 @@ public class GameEndDialogHandler {
                     }
 
                     return false;
-                });
+                };
+        KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                .addKeyEventDispatcher(keyDispatcher);
     }
 
     private String readLabel(String fieldName) {

@@ -4,6 +4,7 @@ import xmageaccess.AccessibilityManager;
 import xmageaccess.speech.SpeechOutput;
 
 import java.awt.Component;
+import java.awt.KeyEventDispatcher;
 import java.awt.KeyboardFocusManager;
 import java.awt.event.KeyEvent;
 import java.lang.reflect.Field;
@@ -22,6 +23,7 @@ import java.util.List;
 public class DeckEditorHandler {
 
     private final Component deckEditorPanel;
+    private KeyEventDispatcher keyDispatcher;
 
     // Cached reflection references
     private Object cardSelector;
@@ -48,7 +50,11 @@ public class DeckEditorHandler {
     }
 
     public void detach() {
-        // Keyboard dispatcher is left registered but isDeckEditorVisible() check prevents it from firing
+        if (keyDispatcher != null) {
+            KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                    .removeKeyEventDispatcher(keyDispatcher);
+            keyDispatcher = null;
+        }
     }
 
     private void discoverComponents() {
@@ -72,8 +78,7 @@ public class DeckEditorHandler {
     }
 
     private void addKeyboardShortcuts() {
-        KeyboardFocusManager.getCurrentKeyboardFocusManager()
-                .addKeyEventDispatcher(e -> {
+        keyDispatcher = e -> {
                     if (e.getID() != KeyEvent.KEY_PRESSED) return false;
                     if (!isDeckEditorVisible()) return false;
                     // If the accessible deck editor or sideboarding window is open, it handles all shortcuts
@@ -88,7 +93,9 @@ public class DeckEditorHandler {
                         }
                     }
                     return false;
-                });
+                };
+        KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                .addKeyEventDispatcher(keyDispatcher);
     }
 
     private boolean isDeckEditorVisible() {

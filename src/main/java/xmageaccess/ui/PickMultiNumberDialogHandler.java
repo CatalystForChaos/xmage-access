@@ -27,6 +27,7 @@ public class PickMultiNumberDialogHandler {
     private JButton btnOk;
     private JButton btnCancel;
     private int currentIndex = 0;
+    private KeyEventDispatcher keyDispatcher;
 
     public PickMultiNumberDialogHandler(Component dialog) {
         this.dialog = dialog;
@@ -42,7 +43,13 @@ public class PickMultiNumberDialogHandler {
         }
     }
 
-    public void detach() {}
+    public void detach() {
+        if (keyDispatcher != null) {
+            KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                    .removeKeyEventDispatcher(keyDispatcher);
+            keyDispatcher = null;
+        }
+    }
 
     @SuppressWarnings("unchecked")
     private void discoverComponents() {
@@ -82,8 +89,7 @@ public class PickMultiNumberDialogHandler {
     }
 
     private void addKeyboardShortcuts() {
-        KeyboardFocusManager.getCurrentKeyboardFocusManager()
-                .addKeyEventDispatcher(e -> {
+        keyDispatcher = e -> {
                     if (e.getID() != KeyEvent.KEY_PRESSED) return false;
                     if (!isDialogVisible()) return false;
 
@@ -111,7 +117,9 @@ public class PickMultiNumberDialogHandler {
                     }
 
                     return false;
-                });
+                };
+        KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                .addKeyEventDispatcher(keyDispatcher);
     }
 
     private void navigateItem(int direction) {

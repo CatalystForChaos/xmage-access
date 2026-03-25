@@ -175,6 +175,12 @@ public class AccessibleGameWindow extends JFrame {
         }
     }
 
+    @Override
+    public void dispose() {
+        stopPolling();
+        super.dispose();
+    }
+
     /**
      * Called by GamePanelHandler when a game state change is detected
      * (phase change, card played, feedback change, etc.) to immediately
@@ -956,6 +962,7 @@ public class AccessibleGameWindow extends JFrame {
     }
 
     private String formatManaCost(String manaCost) {
+        if (manaCost == null) return "";
         return manaCost
                 .replace("{W}", "white ")
                 .replace("{U}", "blue ")

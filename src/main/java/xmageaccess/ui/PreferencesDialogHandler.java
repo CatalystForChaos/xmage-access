@@ -78,6 +78,7 @@ public class PreferencesDialogHandler {
     private JTextField txtProxyServer;
     private JTextField txtProxyPort;
     private JCheckBox rememberPswd;
+    private KeyEventDispatcher keyDispatcher;
 
     public PreferencesDialogHandler(Component dialog) {
         this.dialog = dialog;
@@ -94,7 +95,11 @@ public class PreferencesDialogHandler {
     }
 
     public void detach() {
-        // KeyDispatcher is not removed per-instance; isDialogActive() guards activation
+        if (keyDispatcher != null) {
+            KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                    .removeKeyEventDispatcher(keyDispatcher);
+            keyDispatcher = null;
+        }
     }
 
     private void discoverComponents() {
@@ -159,8 +164,7 @@ public class PreferencesDialogHandler {
     }
 
     private void addKeyboardShortcuts() {
-        KeyboardFocusManager.getCurrentKeyboardFocusManager()
-                .addKeyEventDispatcher(e -> {
+        keyDispatcher = e -> {
                     if (e.getID() != KeyEvent.KEY_PRESSED) return false;
                     if (!isDialogActive()) return false;
 
@@ -185,7 +189,9 @@ public class PreferencesDialogHandler {
                         }
                     }
                     return false;
-                });
+                };
+        KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                .addKeyEventDispatcher(keyDispatcher);
     }
 
     private void nextTab() {

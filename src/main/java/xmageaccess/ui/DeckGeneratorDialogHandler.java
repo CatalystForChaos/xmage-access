@@ -21,6 +21,7 @@ public class DeckGeneratorDialogHandler {
     private final Component dialog;
     private final Map<Component, String> componentLabels = new LinkedHashMap<>();
     private FocusListener focusListener;
+    private KeyEventDispatcher keyDispatcher;
 
     // Color code to readable name mapping
     private static final Map<String, String> COLOR_NAMES = new LinkedHashMap<>();
@@ -104,6 +105,11 @@ public class DeckGeneratorDialogHandler {
             for (Component comp : componentLabels.keySet()) {
                 comp.removeFocusListener(focusListener);
             }
+        }
+        if (keyDispatcher != null) {
+            KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                    .removeKeyEventDispatcher(keyDispatcher);
+            keyDispatcher = null;
         }
     }
 
@@ -271,8 +277,7 @@ public class DeckGeneratorDialogHandler {
     }
 
     private void addKeyboardShortcuts() {
-        KeyboardFocusManager.getCurrentKeyboardFocusManager()
-                .addKeyEventDispatcher(e -> {
+        keyDispatcher = e -> {
                     if (e.getID() != java.awt.event.KeyEvent.KEY_PRESSED) return false;
                     if (!dialog.isVisible()) return false;
 
@@ -287,7 +292,9 @@ public class DeckGeneratorDialogHandler {
                     }
 
                     return false;
-                });
+                };
+        KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                .addKeyEventDispatcher(keyDispatcher);
     }
 
     private void speak(String text) {

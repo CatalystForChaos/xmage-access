@@ -25,6 +25,7 @@ public class TableWaitingDialogHandler {
     private JButton btnStart;
     private JButton btnCancel;
     private JTable jTableSeats;
+    private KeyEventDispatcher keyDispatcher;
 
     public TableWaitingDialogHandler(Component dialog) {
         this.dialog = dialog;
@@ -65,7 +66,11 @@ public class TableWaitingDialogHandler {
     }
 
     public void detach() {
-        // Cleanup if needed
+        if (keyDispatcher != null) {
+            KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                    .removeKeyEventDispatcher(keyDispatcher);
+            keyDispatcher = null;
+        }
     }
 
     private void discoverComponents() throws Exception {
@@ -76,8 +81,7 @@ public class TableWaitingDialogHandler {
     }
 
     private void addKeyboardShortcuts() {
-        KeyboardFocusManager.getCurrentKeyboardFocusManager()
-                .addKeyEventDispatcher(e -> {
+        keyDispatcher = e -> {
                     if (e.getID() != KeyEvent.KEY_PRESSED) return false;
                     if (!dialog.isVisible()) return false;
 
@@ -101,7 +105,9 @@ public class TableWaitingDialogHandler {
                     }
 
                     return false;
-                });
+                };
+        KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                .addKeyEventDispatcher(keyDispatcher);
     }
 
     /**

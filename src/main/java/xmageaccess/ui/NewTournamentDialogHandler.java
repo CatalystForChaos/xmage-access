@@ -42,6 +42,7 @@ public class NewTournamentDialogHandler {
     private JButton btnCancel;
     // packPanels is a List<JPanel>; each panel holds one JComboBox for set selection
     private List<?> packPanels;
+    private KeyEventDispatcher keyDispatcher;
 
     public NewTournamentDialogHandler(Component dialog) {
         this.dialog = dialog;
@@ -58,7 +59,11 @@ public class NewTournamentDialogHandler {
     }
 
     public void detach() {
-        // KeyDispatcher is not removed per-instance; isDialogActive() guards activation
+        if (keyDispatcher != null) {
+            KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                    .removeKeyEventDispatcher(keyDispatcher);
+            keyDispatcher = null;
+        }
     }
 
     private void discoverComponents() {
@@ -90,8 +95,7 @@ public class NewTournamentDialogHandler {
     }
 
     private void addKeyboardShortcuts() {
-        KeyboardFocusManager.getCurrentKeyboardFocusManager()
-                .addKeyEventDispatcher(e -> {
+        keyDispatcher = e -> {
                     if (e.getID() != KeyEvent.KEY_PRESSED) return false;
                     if (!isDialogActive()) return false;
 
@@ -134,7 +138,9 @@ public class NewTournamentDialogHandler {
                         }
                     }
                     return false;
-                });
+                };
+        KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                .addKeyEventDispatcher(keyDispatcher);
     }
 
     private void readAllSettings() {

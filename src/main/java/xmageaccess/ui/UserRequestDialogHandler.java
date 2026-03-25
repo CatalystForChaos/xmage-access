@@ -25,6 +25,7 @@ public class UserRequestDialogHandler {
     private JButton btn1;
     private JButton btn2;
     private JButton btn3;
+    private KeyEventDispatcher keyDispatcher;
 
     public UserRequestDialogHandler(Component dialog) {
         this.dialog = dialog;
@@ -40,7 +41,13 @@ public class UserRequestDialogHandler {
         }
     }
 
-    public void detach() {}
+    public void detach() {
+        if (keyDispatcher != null) {
+            KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                    .removeKeyEventDispatcher(keyDispatcher);
+            keyDispatcher = null;
+        }
+    }
 
     private void discoverComponents() {
         Class<?> clazz = dialog.getClass();
@@ -82,8 +89,7 @@ public class UserRequestDialogHandler {
     }
 
     private void addKeyboardShortcuts() {
-        KeyboardFocusManager.getCurrentKeyboardFocusManager()
-                .addKeyEventDispatcher(e -> {
+        keyDispatcher = e -> {
                     if (e.getID() != KeyEvent.KEY_PRESSED) return false;
                     if (!isDialogVisible()) return false;
 
@@ -105,7 +111,9 @@ public class UserRequestDialogHandler {
                     }
 
                     return false;
-                });
+                };
+        KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                .addKeyEventDispatcher(keyDispatcher);
     }
 
     private void clickButton(JButton btn) {
