@@ -3,11 +3,12 @@ package xmageaccess.ui;
 import xmageaccess.AccessibilityManager;
 import xmageaccess.speech.SpeechOutput;
 
+import static xmageaccess.util.ReflectionUtils.*;
+
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.text.Document;
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
@@ -266,41 +267,6 @@ public class ChatAccessHelper {
         } catch (Exception e) {
             return "";
         }
-    }
-
-    @SuppressWarnings("unchecked")
-    private <T> T findFieldTyped(Object obj, String name, Class<T> type) {
-        try {
-            Class<?> clazz = obj.getClass();
-            while (clazz != null) {
-                try {
-                    Field field = clazz.getDeclaredField(name);
-                    field.setAccessible(true);
-                    Object val = field.get(obj);
-                    if (type.isInstance(val)) return (T) val;
-                    return null;
-                } catch (NoSuchFieldException e) {
-                    clazz = clazz.getSuperclass();
-                }
-            }
-        } catch (Exception ignored) {}
-        return null;
-    }
-
-    private Object findFieldDeep(Object obj, String name) {
-        try {
-            Class<?> clazz = obj.getClass();
-            while (clazz != null) {
-                try {
-                    Field field = clazz.getDeclaredField(name);
-                    field.setAccessible(true);
-                    return field.get(obj);
-                } catch (NoSuchFieldException e) {
-                    clazz = clazz.getSuperclass();
-                }
-            }
-        } catch (Exception ignored) {}
-        return null;
     }
 
     private void speak(String text) {

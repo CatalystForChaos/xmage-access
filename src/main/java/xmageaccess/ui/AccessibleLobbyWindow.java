@@ -559,6 +559,13 @@ public class AccessibleLobbyWindow extends JFrame {
         }
     }
 
+    @Override
+    public void dispose() {
+        stopPolling();
+        instance = null;
+        super.dispose();
+    }
+
     private void speak(String text) {
         SpeechOutput speech = AccessibilityManager.getInstance().getSpeech();
         if (speech != null) speech.speak(text);

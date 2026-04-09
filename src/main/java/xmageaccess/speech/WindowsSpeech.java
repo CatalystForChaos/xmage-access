@@ -29,7 +29,7 @@ public class WindowsSpeech implements SpeechEngine {
     }
 
     @Override
-    public void speak(String text, boolean interrupt) {
+    public synchronized void speak(String text, boolean interrupt) {
         if (tolkSpeech != null && tolkSpeech.isLoaded()) {
             tolkSpeech.speak(text, interrupt);
         } else {
@@ -38,22 +38,22 @@ public class WindowsSpeech implements SpeechEngine {
     }
 
     @Override
-    public void silence() {
+    public synchronized void silence() {
         if (tolkSpeech != null && tolkSpeech.isLoaded()) {
             tolkSpeech.silence();
         }
         if (currentProcess != null && currentProcess.isAlive()) {
             currentProcess.destroyForcibly();
-            currentProcess = null;
         }
+        currentProcess = null;
     }
 
     private void speakSapi(String text, boolean interrupt) {
         if (interrupt) {
             if (currentProcess != null && currentProcess.isAlive()) {
                 currentProcess.destroyForcibly();
-                currentProcess = null;
             }
+            currentProcess = null;
         }
 
         try {
@@ -63,10 +63,22 @@ public class WindowsSpeech implements SpeechEngine {
                     + "$synth.Speak('" + escaped + "')";
 
             ProcessBuilder pb = new ProcessBuilder("powershell", "-Command", command);
-            pb.redirectErrorStream(true);
             currentProcess = pb.start();
+            closeStreams(currentProcess);
         } catch (IOException e) {
             System.err.println("[XMage Access] SAPI speech error: " + e.getMessage());
         }
+    }
+
+    public void shutdown() {
+        if (tolkSpeech != null) {
+            tolkSpeech.shutdown();
+        }
+    }
+
+    private static void closeStreams(Process p) {
+        try { p.getInputStream().close(); } catch (Exception ignored) {}
+        try { p.getOutputStream().close(); } catch (Exception ignored) {}
+        try { p.getErrorStream().close(); } catch (Exception ignored) {}
     }
 }

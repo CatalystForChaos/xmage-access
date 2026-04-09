@@ -2,6 +2,11 @@ package xmageaccess.ui;
 
 import xmageaccess.AccessibilityManager;
 import xmageaccess.speech.SpeechOutput;
+import xmageaccess.util.ReflectionUtils;
+import xmageaccess.util.TextUtils;
+
+import static xmageaccess.util.ReflectionUtils.*;
+import static xmageaccess.util.TextUtils.*;
 
 import javax.swing.*;
 import java.awt.BorderLayout;
@@ -959,86 +964,6 @@ public class AccessibleGameWindow extends JFrame {
             }
         }
         return sb.toString();
-    }
-
-    private String formatManaCost(String manaCost) {
-        if (manaCost == null) return "";
-        return manaCost
-                .replace("{W}", "white ")
-                .replace("{U}", "blue ")
-                .replace("{B}", "black ")
-                .replace("{R}", "red ")
-                .replace("{G}", "green ")
-                .replace("{C}", "colorless ")
-                .replace("{X}", "X ")
-                .replaceAll("\\{(\\d+)\\}", "$1 ")
-                .trim();
-    }
-
-    private String cleanHtml(String text) {
-        if (text == null) return "";
-        return text.replaceAll("<[^>]*>", " ")
-                .replaceAll("&nbsp;", " ")
-                .replaceAll("&amp;", "&")
-                .replaceAll("&lt;", "<")
-                .replaceAll("&gt;", ">")
-                .replaceAll("\\s+", " ")
-                .trim();
-    }
-
-    // ========== REFLECTION HELPERS ==========
-
-    @SuppressWarnings("unchecked")
-    private <T> T findFieldTyped(Object target, String name, Class<T> type) {
-        Object val = findFieldDeep(target, name);
-        if (type.isInstance(val)) return (T) val;
-        return null;
-    }
-
-    private Object findFieldDeep(Object target, String name) {
-        if (target == null) return null;
-        try {
-            Class<?> clazz = target.getClass();
-            while (clazz != null) {
-                try {
-                    Field field = clazz.getDeclaredField(name);
-                    field.setAccessible(true);
-                    return field.get(target);
-                } catch (NoSuchFieldException e) {
-                    clazz = clazz.getSuperclass();
-                }
-            }
-        } catch (Exception e) {
-            // Ignore
-        }
-        return null;
-    }
-
-    private static Object callMethod(Object obj, String methodName) {
-        if (obj == null) return null;
-        try {
-            Method method = obj.getClass().getMethod(methodName);
-            return method.invoke(obj);
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private static String callString(Object obj, String methodName) {
-        Object result = callMethod(obj, methodName);
-        return result != null ? result.toString() : null;
-    }
-
-    private static int callInt(Object obj, String methodName) {
-        Object result = callMethod(obj, methodName);
-        if (result instanceof Number) return ((Number) result).intValue();
-        return 0;
-    }
-
-    private static boolean callBool(Object obj, String methodName) {
-        Object result = callMethod(obj, methodName);
-        if (result instanceof Boolean) return (Boolean) result;
-        return false;
     }
 
     // ========== SPEECH ==========

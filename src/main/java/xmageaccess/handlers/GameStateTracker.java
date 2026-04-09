@@ -4,9 +4,9 @@ import xmageaccess.AccessibilityManager;
 import xmageaccess.speech.SpeechOutput;
 
 import java.lang.reflect.Method;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Tracks game state changes and generates screen reader announcements.
@@ -17,12 +17,12 @@ public class GameStateTracker {
 
     private static final GameStateTracker INSTANCE = new GameStateTracker();
 
-    private String lastStep = "";
-    private String lastActivePlayer = "";
-    private String lastPriorityPlayer = "";
-    private int lastTurn = -1;
-    private final Map<String, Integer> lastLifeTotals = new HashMap<>();
-    private boolean gameActive = false;
+    private volatile String lastStep = "";
+    private volatile String lastActivePlayer = "";
+    private volatile String lastPriorityPlayer = "";
+    private volatile int lastTurn = -1;
+    private final Map<String, Integer> lastLifeTotals = new ConcurrentHashMap<>();
+    private volatile boolean gameActive = false;
 
     private GameStateTracker() {
     }
@@ -34,7 +34,7 @@ public class GameStateTracker {
     /**
      * Called when a game is initialized.
      */
-    public void onGameInit(Object gameView) {
+    public synchronized void onGameInit(Object gameView) {
         gameActive = true;
         lastTurn = -1;
         lastStep = "";
@@ -96,7 +96,7 @@ public class GameStateTracker {
         }
     }
 
-    private void announceStateChanges(Object gameView) throws Exception {
+    private synchronized void announceStateChanges(Object gameView) throws Exception {
         StringBuilder announcement = new StringBuilder();
 
         // Extract turn number

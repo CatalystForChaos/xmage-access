@@ -26,6 +26,7 @@ public class TableWaitingDialogHandler {
     private JButton btnCancel;
     private JTable jTableSeats;
     private KeyEventDispatcher keyDispatcher;
+    private Timer startButtonTimer;
 
     public TableWaitingDialogHandler(Component dialog) {
         this.dialog = dialog;
@@ -66,6 +67,10 @@ public class TableWaitingDialogHandler {
     }
 
     public void detach() {
+        if (startButtonTimer != null) {
+            startButtonTimer.stop();
+            startButtonTimer = null;
+        }
         if (keyDispatcher != null) {
             KeyboardFocusManager.getCurrentKeyboardFocusManager()
                     .removeKeyEventDispatcher(keyDispatcher);
@@ -117,7 +122,7 @@ public class TableWaitingDialogHandler {
         if (btnStart == null) return;
 
         // Poll for the button becoming enabled
-        Timer timer = new Timer(1000, e -> {
+        startButtonTimer = new Timer(1000, e -> {
             if (!dialog.isVisible()) {
                 ((Timer) e.getSource()).stop();
                 return;
@@ -127,8 +132,8 @@ public class TableWaitingDialogHandler {
                 speak("All players ready. Press Ctrl+Enter to start the game.");
             }
         });
-        timer.setRepeats(true);
-        timer.start();
+        startButtonTimer.setRepeats(true);
+        startButtonTimer.start();
     }
 
     private void readSeats() {

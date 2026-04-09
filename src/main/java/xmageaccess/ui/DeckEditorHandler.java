@@ -3,12 +3,12 @@ package xmageaccess.ui;
 import xmageaccess.AccessibilityManager;
 import xmageaccess.speech.SpeechOutput;
 
+import static xmageaccess.util.ReflectionUtils.*;
+
 import java.awt.Component;
 import java.awt.KeyEventDispatcher;
 import java.awt.KeyboardFocusManager;
 import java.awt.event.KeyEvent;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.util.List;
 
 /**
@@ -167,50 +167,6 @@ public class DeckEditorHandler {
         if (cardSelector != null) {
             mainModel = findFieldDeep(cardSelector, "mainModel");
         }
-    }
-
-    // ========== REFLECTION HELPERS ==========
-
-    @SuppressWarnings("unchecked")
-    private <T> T findFieldTyped(Object target, String name, Class<T> type) {
-        Object val = findFieldDeep(target, name);
-        if (type.isInstance(val)) return (T) val;
-        return null;
-    }
-
-    private Object findFieldDeep(Object target, String name) {
-        if (target == null) return null;
-        try {
-            Class<?> clazz = target.getClass();
-            while (clazz != null) {
-                try {
-                    Field field = clazz.getDeclaredField(name);
-                    field.setAccessible(true);
-                    return field.get(target);
-                } catch (NoSuchFieldException e) {
-                    clazz = clazz.getSuperclass();
-                }
-            }
-        } catch (Exception e) {
-            // Ignore
-        }
-        return null;
-    }
-
-    private static Object callMethod(Object obj, String methodName) {
-        if (obj == null) return null;
-        try {
-            Method method = obj.getClass().getMethod(methodName);
-            return method.invoke(obj);
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private static boolean callBool(Object obj, String methodName) {
-        Object result = callMethod(obj, methodName);
-        if (result instanceof Boolean) return (Boolean) result;
-        return false;
     }
 
     private void speak(String text) {

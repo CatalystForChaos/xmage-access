@@ -49,4 +49,14 @@ public class SpeechOutput {
             engine.silence();
         }
     }
+
+    /**
+     * Release any native resources held by the speech engine.
+     * Called on JVM shutdown.
+     */
+    public void shutdown() {
+        if (engine instanceof WindowsSpeech) {
+            ((WindowsSpeech) engine).shutdown();
+        }
+    }
 }
