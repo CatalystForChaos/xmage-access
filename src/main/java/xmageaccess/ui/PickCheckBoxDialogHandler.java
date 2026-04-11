@@ -3,11 +3,12 @@ package xmageaccess.ui;
 import xmageaccess.AccessibilityManager;
 import xmageaccess.speech.SpeechOutput;
 
+import static xmageaccess.util.ReflectionUtils.*;
+import static xmageaccess.util.TextUtils.*;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 
 /**
  * Accessibility handler for the XMage PickCheckBoxDialog.
@@ -53,12 +54,11 @@ public class PickCheckBoxDialogHandler {
     }
 
     private void discoverComponents() {
-        Class<?> clazz = dialog.getClass();
-        listChoices = getField(clazz, "listChoices", JList.class);
-        btOK = getField(clazz, "btOK", JButton.class);
-        btCancel = getField(clazz, "btCancel", JButton.class);
-        btClear = getField(clazz, "btClear", JButton.class);
-        editSearch = getField(clazz, "editSearch", JTextField.class);
+        listChoices = findFieldTyped(dialog, "listChoices", JList.class);
+        btOK = findFieldTyped(dialog, "btOK", JButton.class);
+        btCancel = findFieldTyped(dialog, "btCancel", JButton.class);
+        btClear = findFieldTyped(dialog, "btClear", JButton.class);
+        editSearch = findFieldTyped(dialog, "editSearch", JTextField.class);
     }
 
     private void announceDialog() {
@@ -165,27 +165,18 @@ public class PickCheckBoxDialogHandler {
         // The CheckBoxList toggles on click, simulate it
         try {
             // Get the tList (CheckBoxList) from the dialog
-            Object tList = getField(dialog.getClass(), "tList", Object.class);
+            Object tList = findFieldDeep(dialog, "tList");
             if (tList != null) {
-                // CheckBoxList has toggleCheckbox or we can simulate via model
-                Method toggleMethod = null;
-                try {
-                    toggleMethod = tList.getClass().getMethod("toggleCheckbox", int.class);
-                } catch (NoSuchMethodException ignored) {}
-
-                if (toggleMethod != null) {
-                    toggleMethod.invoke(tList, sel);
-                } else {
-                    // Try getting the model and toggling directly
+                // Try toggleCheckbox method first
+                Object toggled = callMethodWithArg(tList, "toggleCheckbox", int.class, sel);
+                if (toggled == null) {
+                    // Fallback: toggle via model
                     Object model = callMethod(tList, "getModel");
                     if (model != null) {
                         Object item = callMethodWithArg(model, "getElementAt", int.class, sel);
                         if (item != null) {
-                            // CheckBoxListItem has isSelected/setSelected
-                            Method isSelected = item.getClass().getMethod("isSelected");
-                            Method setSelected = item.getClass().getMethod("setSelected", boolean.class);
-                            boolean current = (Boolean) isSelected.invoke(item);
-                            setSelected.invoke(item, !current);
+                            boolean current = callBool(item, "isSelected");
+                            callMethodWithArg(item, "setSelected", boolean.class, !current);
                         }
                     }
                 }
@@ -229,19 +220,11 @@ public class PickCheckBoxDialogHandler {
         if (item == null) return "Unknown";
 
         // Try to get plain text value via reflection (KeyValueItem.Value or .value)
-        try {
-            Field valueField = item.getClass().getDeclaredField("Value");
-            valueField.setAccessible(true);
-            String val = (String) valueField.get(item);
-            if (val != null && !val.isEmpty()) return val;
-        } catch (Exception ignored) {}
+        String val = findFieldTyped(item, "Value", String.class);
+        if (val != null && !val.isEmpty()) return val;
 
-        try {
-            Field valueField = item.getClass().getDeclaredField("value");
-            valueField.setAccessible(true);
-            String val = (String) valueField.get(item);
-            if (val != null && !val.isEmpty()) return val;
-        } catch (Exception ignored) {}
+        val = findFieldTyped(item, "value", String.class);
+        if (val != null && !val.isEmpty()) return val;
 
         String text = item.toString();
         return text.replaceAll("<[^>]*>", "").trim();
@@ -249,14 +232,13 @@ public class PickCheckBoxDialogHandler {
 
     private boolean isItemChecked(int index) {
         try {
-            Object tList = getField(dialog.getClass(), "tList", Object.class);
+            Object tList = findFieldDeep(dialog, "tList");
             if (tList != null) {
                 Object model = callMethod(tList, "getModel");
                 if (model != null) {
                     Object item = callMethodWithArg(model, "getElementAt", int.class, index);
                     if (item != null) {
-                        Method isSelected = item.getClass().getMethod("isSelected");
-                        return (Boolean) isSelected.invoke(item);
+                        return callBool(item, "isSelected");
                     }
                 }
             }
@@ -274,36 +256,9 @@ public class PickCheckBoxDialogHandler {
         return count;
     }
 
-    private Object callMethod(Object obj, String name) {
-        try {
-            Method m = obj.getClass().getMethod(name);
-            return m.invoke(obj);
-        } catch (Exception ignored) {}
-        return null;
-    }
-
-    private Object callMethodWithArg(Object obj, String name, Class<?> argType, Object arg) {
-        try {
-            Method m = obj.getClass().getMethod(name, argType);
-            return m.invoke(obj, arg);
-        } catch (Exception ignored) {}
-        return null;
-    }
-
     private String readLabel(String fieldName) {
-        try {
-            Field field = findField(dialog.getClass(), fieldName);
-            if (field == null) return null;
-            field.setAccessible(true);
-            Object label = field.get(dialog);
-            if (label instanceof JLabel) return ((JLabel) label).getText();
-        } catch (Exception ignored) {}
-        return null;
-    }
-
-    private String cleanHtml(String text) {
-        if (text == null) return "";
-        return text.replaceAll("<[^>]*>", "").replaceAll("\\s+", " ").trim();
+        JLabel lbl = findFieldTyped(dialog, fieldName, JLabel.class);
+        return lbl != null ? lbl.getText() : null;
     }
 
     private boolean isDialogVisible() {
@@ -314,29 +269,6 @@ public class PickCheckBoxDialogHandler {
             c = c.getParent();
         }
         return true;
-    }
-
-    private Field findField(Class<?> clazz, String name) {
-        while (clazz != null) {
-            try {
-                return clazz.getDeclaredField(name);
-            } catch (NoSuchFieldException e) {
-                clazz = clazz.getSuperclass();
-            }
-        }
-        return null;
-    }
-
-    @SuppressWarnings("unchecked")
-    private <T> T getField(Class<?> clazz, String name, Class<T> type) {
-        try {
-            Field field = findField(clazz, name);
-            if (field == null) return null;
-            field.setAccessible(true);
-            Object val = field.get(dialog);
-            if (type.isInstance(val)) return (T) val;
-        } catch (Exception ignored) {}
-        return null;
     }
 
     private void speak(String text) {

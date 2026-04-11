@@ -3,10 +3,11 @@ package xmageaccess.ui;
 import xmageaccess.AccessibilityManager;
 import xmageaccess.speech.SpeechOutput;
 
+import static xmageaccess.util.ReflectionUtils.*;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -67,19 +68,19 @@ public class NewTournamentDialogHandler {
     }
 
     private void discoverComponents() {
-        txtName = getField(dialog, "txtName", JTextField.class);
-        txtPassword = getField(dialog, "txtPassword", JTextField.class);
-        cbTournamentType = getField(dialog, "cbTournamentType", JComboBox.class);
-        cbSkillLevel = getField(dialog, "cbSkillLevel", JComboBox.class);
-        cbTimeLimit = getField(dialog, "cbTimeLimit", JComboBox.class);
-        spnNumPlayers = getField(dialog, "spnNumPlayers", JSpinner.class);
-        spnNumRounds = getField(dialog, "spnNumRounds", JSpinner.class);
-        spnConstructTime = getField(dialog, "spnConstructTime", JSpinner.class);
-        cbAllowSpectators = getField(dialog, "cbAllowSpectators", JCheckBox.class);
-        chkRated = getField(dialog, "chkRated", JCheckBox.class);
-        btnOk = getField(dialog, "btnOk", JButton.class);
-        btnCancel = getField(dialog, "btnCancel", JButton.class);
-        packPanels = getField(dialog, "packPanels", List.class);
+        txtName = findFieldTyped(dialog,"txtName", JTextField.class);
+        txtPassword = findFieldTyped(dialog,"txtPassword", JTextField.class);
+        cbTournamentType = findFieldTyped(dialog,"cbTournamentType", JComboBox.class);
+        cbSkillLevel = findFieldTyped(dialog,"cbSkillLevel", JComboBox.class);
+        cbTimeLimit = findFieldTyped(dialog,"cbTimeLimit", JComboBox.class);
+        spnNumPlayers = findFieldTyped(dialog,"spnNumPlayers", JSpinner.class);
+        spnNumRounds = findFieldTyped(dialog,"spnNumRounds", JSpinner.class);
+        spnConstructTime = findFieldTyped(dialog,"spnConstructTime", JSpinner.class);
+        cbAllowSpectators = findFieldTyped(dialog,"cbAllowSpectators", JCheckBox.class);
+        chkRated = findFieldTyped(dialog,"chkRated", JCheckBox.class);
+        btnOk = findFieldTyped(dialog,"btnOk", JButton.class);
+        btnCancel = findFieldTyped(dialog,"btnCancel", JButton.class);
+        packPanels = findFieldTyped(dialog,"packPanels", List.class);
     }
 
     private void announceDialog() {
@@ -258,25 +259,6 @@ public class NewTournamentDialogHandler {
         if (focused == null) return false;
         if (dialog instanceof Window) return dialog == focused;
         return SwingUtilities.getWindowAncestor(dialog) == focused;
-    }
-
-    @SuppressWarnings("unchecked")
-    private <T> T getField(Object obj, String name, Class<T> type) {
-        try {
-            Class<?> clazz = obj.getClass();
-            while (clazz != null) {
-                try {
-                    Field f = clazz.getDeclaredField(name);
-                    f.setAccessible(true);
-                    Object val = f.get(obj);
-                    if (type.isInstance(val)) return (T) val;
-                    return null;
-                } catch (NoSuchFieldException e) {
-                    clazz = clazz.getSuperclass();
-                }
-            }
-        } catch (Exception ignored) {}
-        return null;
     }
 
     private void speak(String text) {

@@ -105,4 +105,33 @@ public final class ReflectionUtils {
         if (result instanceof Boolean) return (Boolean) result;
         return false;
     }
+
+    /**
+     * Invoke a single-argument method on an object via reflection.
+     * Returns null if the object is null or invocation fails.
+     */
+    public static Object callMethodWithArg(Object obj, String methodName, Class<?> argType, Object arg) {
+        if (obj == null) return null;
+        try {
+            Method method = obj.getClass().getMethod(methodName, argType);
+            return method.invoke(obj, arg);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Find a declared field by walking the class hierarchy.
+     * Returns the Field object (not its value), or null.
+     */
+    public static Field findField(Class<?> clazz, String name) {
+        while (clazz != null) {
+            try {
+                return clazz.getDeclaredField(name);
+            } catch (NoSuchFieldException e) {
+                clazz = clazz.getSuperclass();
+            }
+        }
+        return null;
+    }
 }

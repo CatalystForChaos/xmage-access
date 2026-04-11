@@ -3,10 +3,11 @@ package xmageaccess.ui;
 import xmageaccess.AccessibilityManager;
 import xmageaccess.speech.SpeechOutput;
 
+import static xmageaccess.util.ReflectionUtils.*;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
-import java.lang.reflect.Field;
 
 /**
  * Accessibility handler for the XMage PreferencesDialog.
@@ -103,57 +104,57 @@ public class PreferencesDialogHandler {
     }
 
     private void discoverComponents() {
-        tabsPanel = getField(dialog, "tabsPanel", JTabbedPane.class);
-        saveButton = getField(dialog, "saveButton", JButton.class);
-        exitButton = getField(dialog, "exitButton", JButton.class);
+        tabsPanel = findFieldTyped(dialog,"tabsPanel", JTabbedPane.class);
+        saveButton = findFieldTyped(dialog,"saveButton", JButton.class);
+        exitButton = findFieldTyped(dialog,"exitButton", JButton.class);
         // Main tab
-        cbGameLogAutoSave = getField(dialog, "cbGameLogAutoSave", JCheckBox.class);
-        cbDraftLogAutoSave = getField(dialog, "cbDraftLogAutoSave", JCheckBox.class);
-        cbLimitedDeckAutoSave = getField(dialog, "cbLimitedDeckAutoSave", JCheckBox.class);
-        cbGameJsonLogAutoSave = getField(dialog, "cbGameJsonLogAutoSave", JCheckBox.class);
-        showCardName = getField(dialog, "showCardName", JCheckBox.class);
-        nonLandPermanentsInOnePile = getField(dialog, "nonLandPermanentsInOnePile", JCheckBox.class);
-        showPlayerNamesPermanently = getField(dialog, "showPlayerNamesPermanently", JCheckBox.class);
-        displayLifeOnAvatar = getField(dialog, "displayLifeOnAvatar", JCheckBox.class);
-        cbAllowRequestToShowHandCards = getField(dialog, "cbAllowRequestToShowHandCards", JCheckBox.class);
-        cbConfirmEmptyManaPool = getField(dialog, "cbConfirmEmptyManaPool", JCheckBox.class);
-        cbAskMoveToGraveOrder = getField(dialog, "cbAskMoveToGraveOrder", JCheckBox.class);
+        cbGameLogAutoSave = findFieldTyped(dialog,"cbGameLogAutoSave", JCheckBox.class);
+        cbDraftLogAutoSave = findFieldTyped(dialog,"cbDraftLogAutoSave", JCheckBox.class);
+        cbLimitedDeckAutoSave = findFieldTyped(dialog,"cbLimitedDeckAutoSave", JCheckBox.class);
+        cbGameJsonLogAutoSave = findFieldTyped(dialog,"cbGameJsonLogAutoSave", JCheckBox.class);
+        showCardName = findFieldTyped(dialog,"showCardName", JCheckBox.class);
+        nonLandPermanentsInOnePile = findFieldTyped(dialog,"nonLandPermanentsInOnePile", JCheckBox.class);
+        showPlayerNamesPermanently = findFieldTyped(dialog,"showPlayerNamesPermanently", JCheckBox.class);
+        displayLifeOnAvatar = findFieldTyped(dialog,"displayLifeOnAvatar", JCheckBox.class);
+        cbAllowRequestToShowHandCards = findFieldTyped(dialog,"cbAllowRequestToShowHandCards", JCheckBox.class);
+        cbConfirmEmptyManaPool = findFieldTyped(dialog,"cbConfirmEmptyManaPool", JCheckBox.class);
+        cbAskMoveToGraveOrder = findFieldTyped(dialog,"cbAskMoveToGraveOrder", JCheckBox.class);
         // Phases tab - your turn
-        checkBoxUpkeepYou = getField(dialog, "checkBoxUpkeepYou", JCheckBox.class);
-        checkBoxDrawYou = getField(dialog, "checkBoxDrawYou", JCheckBox.class);
-        checkBoxMainYou = getField(dialog, "checkBoxMainYou", JCheckBox.class);
-        checkBoxBeforeCYou = getField(dialog, "checkBoxBeforeCYou", JCheckBox.class);
-        checkBoxEndOfCYou = getField(dialog, "checkBoxEndOfCYou", JCheckBox.class);
-        checkBoxMain2You = getField(dialog, "checkBoxMain2You", JCheckBox.class);
-        checkBoxEndTurnYou = getField(dialog, "checkBoxEndTurnYou", JCheckBox.class);
+        checkBoxUpkeepYou = findFieldTyped(dialog,"checkBoxUpkeepYou", JCheckBox.class);
+        checkBoxDrawYou = findFieldTyped(dialog,"checkBoxDrawYou", JCheckBox.class);
+        checkBoxMainYou = findFieldTyped(dialog,"checkBoxMainYou", JCheckBox.class);
+        checkBoxBeforeCYou = findFieldTyped(dialog,"checkBoxBeforeCYou", JCheckBox.class);
+        checkBoxEndOfCYou = findFieldTyped(dialog,"checkBoxEndOfCYou", JCheckBox.class);
+        checkBoxMain2You = findFieldTyped(dialog,"checkBoxMain2You", JCheckBox.class);
+        checkBoxEndTurnYou = findFieldTyped(dialog,"checkBoxEndTurnYou", JCheckBox.class);
         // Phases tab - opponents
-        checkBoxUpkeepOthers = getField(dialog, "checkBoxUpkeepOthers", JCheckBox.class);
-        checkBoxDrawOthers = getField(dialog, "checkBoxDrawOthers", JCheckBox.class);
-        checkBoxMainOthers = getField(dialog, "checkBoxMainOthers", JCheckBox.class);
-        checkBoxBeforeCOthers = getField(dialog, "checkBoxBeforeCOthers", JCheckBox.class);
-        checkBoxEndOfCOthers = getField(dialog, "checkBoxEndOfCOthers", JCheckBox.class);
-        checkBoxMain2Others = getField(dialog, "checkBoxMain2Others", JCheckBox.class);
-        checkBoxEndTurnOthers = getField(dialog, "checkBoxEndTurnOthers", JCheckBox.class);
+        checkBoxUpkeepOthers = findFieldTyped(dialog,"checkBoxUpkeepOthers", JCheckBox.class);
+        checkBoxDrawOthers = findFieldTyped(dialog,"checkBoxDrawOthers", JCheckBox.class);
+        checkBoxMainOthers = findFieldTyped(dialog,"checkBoxMainOthers", JCheckBox.class);
+        checkBoxBeforeCOthers = findFieldTyped(dialog,"checkBoxBeforeCOthers", JCheckBox.class);
+        checkBoxEndOfCOthers = findFieldTyped(dialog,"checkBoxEndOfCOthers", JCheckBox.class);
+        checkBoxMain2Others = findFieldTyped(dialog,"checkBoxMain2Others", JCheckBox.class);
+        checkBoxEndTurnOthers = findFieldTyped(dialog,"checkBoxEndTurnOthers", JCheckBox.class);
         // Phases tab - skip/priority
-        cbStopAttack = getField(dialog, "cbStopAttack", JCheckBox.class);
-        cbStopBlockWithAny = getField(dialog, "cbStopBlockWithAny", JCheckBox.class);
-        cbStopBlockWithZero = getField(dialog, "cbStopBlockWithZero", JCheckBox.class);
-        cbStopOnAllMain = getField(dialog, "cbStopOnAllMain", JCheckBox.class);
-        cbStopOnAllEnd = getField(dialog, "cbStopOnAllEnd", JCheckBox.class);
-        cbStopOnNewStackObjects = getField(dialog, "cbStopOnNewStackObjects", JCheckBox.class);
-        cbPassPriorityCast = getField(dialog, "cbPassPriorityCast", JCheckBox.class);
-        cbPassPriorityActivation = getField(dialog, "cbPassPriorityActivation", JCheckBox.class);
-        cbAutoOrderTrigger = getField(dialog, "cbAutoOrderTrigger", JCheckBox.class);
+        cbStopAttack = findFieldTyped(dialog,"cbStopAttack", JCheckBox.class);
+        cbStopBlockWithAny = findFieldTyped(dialog,"cbStopBlockWithAny", JCheckBox.class);
+        cbStopBlockWithZero = findFieldTyped(dialog,"cbStopBlockWithZero", JCheckBox.class);
+        cbStopOnAllMain = findFieldTyped(dialog,"cbStopOnAllMain", JCheckBox.class);
+        cbStopOnAllEnd = findFieldTyped(dialog,"cbStopOnAllEnd", JCheckBox.class);
+        cbStopOnNewStackObjects = findFieldTyped(dialog,"cbStopOnNewStackObjects", JCheckBox.class);
+        cbPassPriorityCast = findFieldTyped(dialog,"cbPassPriorityCast", JCheckBox.class);
+        cbPassPriorityActivation = findFieldTyped(dialog,"cbPassPriorityActivation", JCheckBox.class);
+        cbAutoOrderTrigger = findFieldTyped(dialog,"cbAutoOrderTrigger", JCheckBox.class);
         // Sounds tab
-        cbEnableGameSounds = getField(dialog, "cbEnableGameSounds", JCheckBox.class);
-        cbEnableDraftSounds = getField(dialog, "cbEnableDraftSounds", JCheckBox.class);
-        cbEnableSkipButtonsSounds = getField(dialog, "cbEnableSkipButtonsSounds", JCheckBox.class);
-        cbEnableOtherSounds = getField(dialog, "cbEnableOtherSounds", JCheckBox.class);
-        cbEnableBattlefieldBGM = getField(dialog, "cbEnableBattlefieldBGM", JCheckBox.class);
+        cbEnableGameSounds = findFieldTyped(dialog,"cbEnableGameSounds", JCheckBox.class);
+        cbEnableDraftSounds = findFieldTyped(dialog,"cbEnableDraftSounds", JCheckBox.class);
+        cbEnableSkipButtonsSounds = findFieldTyped(dialog,"cbEnableSkipButtonsSounds", JCheckBox.class);
+        cbEnableOtherSounds = findFieldTyped(dialog,"cbEnableOtherSounds", JCheckBox.class);
+        cbEnableBattlefieldBGM = findFieldTyped(dialog,"cbEnableBattlefieldBGM", JCheckBox.class);
         // Network tab
-        txtProxyServer = getField(dialog, "txtProxyServer", JTextField.class);
-        txtProxyPort = getField(dialog, "txtProxyPort", JTextField.class);
-        rememberPswd = getField(dialog, "rememberPswd", JCheckBox.class);
+        txtProxyServer = findFieldTyped(dialog,"txtProxyServer", JTextField.class);
+        txtProxyPort = findFieldTyped(dialog,"txtProxyPort", JTextField.class);
+        rememberPswd = findFieldTyped(dialog,"rememberPswd", JCheckBox.class);
     }
 
     private void announceDialog() {
@@ -332,25 +333,6 @@ public class PreferencesDialogHandler {
             return dialog == focused;
         }
         return SwingUtilities.getWindowAncestor(dialog) == focused;
-    }
-
-    @SuppressWarnings("unchecked")
-    private <T> T getField(Object obj, String name, Class<T> type) {
-        try {
-            Class<?> clazz = obj.getClass();
-            while (clazz != null) {
-                try {
-                    Field f = clazz.getDeclaredField(name);
-                    f.setAccessible(true);
-                    Object val = f.get(obj);
-                    if (type.isInstance(val)) return (T) val;
-                    return null;
-                } catch (NoSuchFieldException e) {
-                    clazz = clazz.getSuperclass();
-                }
-            }
-        } catch (Exception ignored) {}
-        return null;
     }
 
     private void speak(String text) {
