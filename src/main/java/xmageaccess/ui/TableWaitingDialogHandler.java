@@ -3,12 +3,11 @@ package xmageaccess.ui;
 import xmageaccess.AccessibilityManager;
 import xmageaccess.speech.SpeechOutput;
 
+import static xmageaccess.util.ReflectionUtils.*;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
-import java.beans.PropertyChangeEvent;
-import java.beans.PropertyChangeListener;
-import java.lang.reflect.Field;
 
 /**
  * Accessibility handler for the XMage Table Waiting Dialog.
@@ -26,6 +25,7 @@ public class TableWaitingDialogHandler {
     private JButton btnCancel;
     private JTable jTableSeats;
     private KeyEventDispatcher keyDispatcher;
+    private Timer startButtonTimer;
 
     public TableWaitingDialogHandler(Component dialog) {
         this.dialog = dialog;
@@ -66,6 +66,10 @@ public class TableWaitingDialogHandler {
     }
 
     public void detach() {
+        if (startButtonTimer != null) {
+            startButtonTimer.stop();
+            startButtonTimer = null;
+        }
         if (keyDispatcher != null) {
             KeyboardFocusManager.getCurrentKeyboardFocusManager()
                     .removeKeyEventDispatcher(keyDispatcher);
@@ -74,10 +78,9 @@ public class TableWaitingDialogHandler {
     }
 
     private void discoverComponents() throws Exception {
-        Class<?> clazz = dialog.getClass();
-        btnStart = getField(clazz, "btnStart", JButton.class);
-        btnCancel = getField(clazz, "btnCancel", JButton.class);
-        jTableSeats = getField(clazz, "jTableSeats", JTable.class);
+        btnStart = findFieldTyped(dialog, "btnStart", JButton.class);
+        btnCancel = findFieldTyped(dialog, "btnCancel", JButton.class);
+        jTableSeats = findFieldTyped(dialog, "jTableSeats", JTable.class);
     }
 
     private void addKeyboardShortcuts() {
@@ -117,7 +120,7 @@ public class TableWaitingDialogHandler {
         if (btnStart == null) return;
 
         // Poll for the button becoming enabled
-        Timer timer = new Timer(1000, e -> {
+        startButtonTimer = new Timer(1000, e -> {
             if (!dialog.isVisible()) {
                 ((Timer) e.getSource()).stop();
                 return;
@@ -127,8 +130,8 @@ public class TableWaitingDialogHandler {
                 speak("All players ready. Press Ctrl+Enter to start the game.");
             }
         });
-        timer.setRepeats(true);
-        timer.start();
+        startButtonTimer.setRepeats(true);
+        startButtonTimer.start();
     }
 
     private void readSeats() {
@@ -172,21 +175,6 @@ public class TableWaitingDialogHandler {
         } catch (Exception e) {
             return null;
         }
-    }
-
-    @SuppressWarnings("unchecked")
-    private <T> T getField(Class<?> clazz, String name, Class<T> type) {
-        try {
-            Field field = clazz.getDeclaredField(name);
-            field.setAccessible(true);
-            Object val = field.get(dialog);
-            if (type.isInstance(val)) {
-                return (T) val;
-            }
-        } catch (Exception e) {
-            // Field doesn't exist
-        }
-        return null;
     }
 
     private void speak(String text) {

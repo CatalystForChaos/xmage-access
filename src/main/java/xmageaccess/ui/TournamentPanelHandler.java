@@ -3,10 +3,11 @@ package xmageaccess.ui;
 import xmageaccess.AccessibilityManager;
 import xmageaccess.speech.SpeechOutput;
 
+import static xmageaccess.util.ReflectionUtils.*;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
-import java.lang.reflect.Field;
 
 /**
  * Accessibility handler for the XMage Tournament Panel.
@@ -65,14 +66,13 @@ public class TournamentPanelHandler {
     }
 
     private void discoverComponents() {
-        Class<?> clazz = panel.getClass();
-        tablePlayers = getField(clazz, "tablePlayers", JTable.class);
-        tableMatches = getField(clazz, "tableMatches", JTable.class);
-        btnQuitTournament = getField(clazz, "btnQuitTournament", JButton.class);
-        btnCloseWindow = getField(clazz, "btnCloseWindow", JButton.class);
+        tablePlayers = findFieldTyped(panel, "tablePlayers", JTable.class);
+        tableMatches = findFieldTyped(panel, "tableMatches", JTable.class);
+        btnQuitTournament = findFieldTyped(panel, "btnQuitTournament", JButton.class);
+        btnCloseWindow = findFieldTyped(panel, "btnCloseWindow", JButton.class);
 
         // Attach chat
-        Object chatPanel = getField(clazz, "chatPanel1", Object.class);
+        Object chatPanel = findFieldDeep(panel, "chatPanel1");
         if (chatPanel != null) {
             chatHelper = new ChatAccessHelper(chatPanel);
             chatHelper.attach();
@@ -330,7 +330,7 @@ public class TournamentPanelHandler {
 
     private String readTextField(String fieldName) {
         try {
-            JTextField field = getField(panel.getClass(), fieldName, JTextField.class);
+            JTextField field = findFieldTyped(panel, fieldName, JTextField.class);
             if (field != null) return field.getText();
         } catch (Exception ignored) {}
         return null;
@@ -344,29 +344,6 @@ public class TournamentPanelHandler {
             c = c.getParent();
         }
         return true;
-    }
-
-    private Field findField(Class<?> clazz, String name) {
-        while (clazz != null) {
-            try {
-                return clazz.getDeclaredField(name);
-            } catch (NoSuchFieldException e) {
-                clazz = clazz.getSuperclass();
-            }
-        }
-        return null;
-    }
-
-    @SuppressWarnings("unchecked")
-    private <T> T getField(Class<?> clazz, String name, Class<T> type) {
-        try {
-            Field field = findField(clazz, name);
-            if (field == null) return null;
-            field.setAccessible(true);
-            Object val = field.get(panel);
-            if (type.isInstance(val)) return (T) val;
-        } catch (Exception ignored) {}
-        return null;
     }
 
     private void speak(String text) {

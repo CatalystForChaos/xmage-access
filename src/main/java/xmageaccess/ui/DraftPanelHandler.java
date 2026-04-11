@@ -3,10 +3,12 @@ package xmageaccess.ui;
 import xmageaccess.AccessibilityManager;
 import xmageaccess.speech.SpeechOutput;
 
+import static xmageaccess.util.ReflectionUtils.*;
+import static xmageaccess.util.TextUtils.*;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
@@ -458,19 +460,6 @@ public class DraftPanelHandler {
         return sb.toString();
     }
 
-    private String formatManaCost(String manaCost) {
-        return manaCost
-                .replace("{W}", "white ")
-                .replace("{U}", "blue ")
-                .replace("{B}", "black ")
-                .replace("{R}", "red ")
-                .replace("{G}", "green ")
-                .replace("{C}", "colorless ")
-                .replace("{X}", "X ")
-                .replaceAll("\\{(\\d+)\\}", "$1 ")
-                .trim();
-    }
-
     // ========== VISIBILITY ==========
 
     private boolean isPanelVisible() {
@@ -483,76 +472,10 @@ public class DraftPanelHandler {
         return true;
     }
 
-    // ========== REFLECTION HELPERS ==========
-
     private String readLabel(String fieldName) {
         try {
             JLabel label = findFieldTyped(draftPanel, fieldName, JLabel.class);
             if (label != null) return label.getText();
-        } catch (Exception ignored) {}
-        return null;
-    }
-
-    private String callString(Object obj, String methodName) {
-        try {
-            Method m = obj.getClass().getMethod(methodName);
-            Object result = m.invoke(obj);
-            return result instanceof String ? (String) result : null;
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private boolean callBool(Object obj, String methodName) {
-        try {
-            Method m = obj.getClass().getMethod(methodName);
-            Object result = m.invoke(obj);
-            return result instanceof Boolean && (Boolean) result;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    private Object callMethod(Object obj, String methodName) {
-        try {
-            Method m = obj.getClass().getMethod(methodName);
-            return m.invoke(obj);
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private <T> T findFieldTyped(Object obj, String name, Class<T> type) {
-        try {
-            Class<?> clazz = obj.getClass();
-            while (clazz != null) {
-                try {
-                    Field field = clazz.getDeclaredField(name);
-                    field.setAccessible(true);
-                    Object val = field.get(obj);
-                    if (type.isInstance(val)) return (T) val;
-                    return null;
-                } catch (NoSuchFieldException e) {
-                    clazz = clazz.getSuperclass();
-                }
-            }
-        } catch (Exception ignored) {}
-        return null;
-    }
-
-    private Object findFieldDeep(Object obj, String name) {
-        try {
-            Class<?> clazz = obj.getClass();
-            while (clazz != null) {
-                try {
-                    Field field = clazz.getDeclaredField(name);
-                    field.setAccessible(true);
-                    return field.get(obj);
-                } catch (NoSuchFieldException e) {
-                    clazz = clazz.getSuperclass();
-                }
-            }
         } catch (Exception ignored) {}
         return null;
     }

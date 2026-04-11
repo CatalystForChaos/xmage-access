@@ -3,10 +3,11 @@ package xmageaccess.ui;
 import xmageaccess.AccessibilityManager;
 import xmageaccess.speech.SpeechOutput;
 
+import static xmageaccess.util.ReflectionUtils.*;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
-import java.lang.reflect.Field;
 
 /**
  * Accessibility handler for the XMage PickChoiceDialog.
@@ -50,11 +51,10 @@ public class PickChoiceDialogHandler {
     }
 
     private void discoverComponents() {
-        Class<?> clazz = dialog.getClass();
-        listChoices = getField(clazz, "listChoices", JList.class);
-        btOK = getField(clazz, "btOK", JButton.class);
-        btCancel = getField(clazz, "btCancel", JButton.class);
-        editSearch = getField(clazz, "editSearch", JTextField.class);
+        listChoices = findFieldTyped(dialog, "listChoices", JList.class);
+        btOK = findFieldTyped(dialog, "btOK", JButton.class);
+        btCancel = findFieldTyped(dialog, "btCancel", JButton.class);
+        editSearch = findFieldTyped(dialog, "editSearch", JTextField.class);
     }
 
     private void announceDialog() {
@@ -164,12 +164,8 @@ public class PickChoiceDialogHandler {
         if (item == null) return "Unknown";
 
         // Try to get the plain-text value from KeyValueItem via reflection
-        try {
-            Field valueField = item.getClass().getDeclaredField("value");
-            valueField.setAccessible(true);
-            String value = (String) valueField.get(item);
-            if (value != null && !value.isEmpty()) return value;
-        } catch (Exception ignored) {}
+        String value = findFieldTyped(item, "value", String.class);
+        if (value != null && !value.isEmpty()) return value;
 
         // Fallback: strip HTML from toString
         String text = item.toString();
@@ -178,21 +174,11 @@ public class PickChoiceDialogHandler {
     }
 
     private String readEditorPane(String fieldName) {
-        try {
-            Class<?> clazz = dialog.getClass();
-            Field field = findField(clazz, fieldName);
-            if (field == null) return null;
-            field.setAccessible(true);
-            Object pane = field.get(dialog);
-            if (pane instanceof JEditorPane) {
-                String text = ((JEditorPane) pane).getText();
-                // Strip HTML tags
-                text = text.replaceAll("<[^>]*>", "").trim();
-                text = text.replaceAll("\\s+", " ");
-                return text;
-            }
-        } catch (Exception ignored) {}
-        return null;
+        JEditorPane pane = findFieldTyped(dialog, fieldName, JEditorPane.class);
+        if (pane == null) return null;
+        String text = pane.getText();
+        if (text == null) return null;
+        return text.replaceAll("<[^>]*>", "").replaceAll("\\s+", " ").trim();
     }
 
     private boolean isDialogVisible() {
@@ -204,31 +190,6 @@ public class PickChoiceDialogHandler {
             c = c.getParent();
         }
         return true;
-    }
-
-    private Field findField(Class<?> clazz, String name) {
-        while (clazz != null) {
-            try {
-                return clazz.getDeclaredField(name);
-            } catch (NoSuchFieldException e) {
-                clazz = clazz.getSuperclass();
-            }
-        }
-        return null;
-    }
-
-    @SuppressWarnings("unchecked")
-    private <T> T getField(Class<?> clazz, String name, Class<T> type) {
-        try {
-            Field field = findField(clazz, name);
-            if (field == null) return null;
-            field.setAccessible(true);
-            Object val = field.get(dialog);
-            if (type.isInstance(val)) {
-                return (T) val;
-            }
-        } catch (Exception ignored) {}
-        return null;
     }
 
     private void speak(String text) {

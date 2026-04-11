@@ -3,12 +3,13 @@ package xmageaccess.ui;
 import xmageaccess.AccessibilityManager;
 import xmageaccess.speech.SpeechOutput;
 
+import static xmageaccess.util.ReflectionUtils.*;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
 import java.io.File;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -90,22 +91,20 @@ public class NewTableDialogHandler {
     }
 
     private void discoverComponents() throws Exception {
-        Class<?> clazz = dialog.getClass();
-
         // Main controls
-        cbGameType = getField(clazz, "cbGameType", JComboBox.class);
-        cbDeckType = getField(clazz, "cbDeckType", JComboBox.class);
-        txtName = getField(clazz, "txtName", JTextField.class);
-        btnOK = getField(clazz, "btnOK", JButton.class);
-        btnCancel = getField(clazz, "btnCancel", JButton.class);
-        chkRollbackTurnsAllowed = getField(clazz, "chkRollbackTurnsAllowed", JCheckBox.class);
-        chkSpectatorsAllowed = getField(clazz, "chkSpectatorsAllowed", JCheckBox.class);
-        chkRated = getField(clazz, "chkRated", JCheckBox.class);
-        spnNumWins = getField(clazz, "spnNumWins", JSpinner.class);
-        cbTimeLimit = getField(clazz, "cbTimeLimit", JComboBox.class);
-        cbSkillLevel = getField(clazz, "cbSkillLevel", JComboBox.class);
-        pnlOtherPlayers = getField(clazz, "pnlOtherPlayers", Container.class);
-        player1Panel = getField(clazz, "player1Panel", Component.class);
+        cbGameType = findFieldTyped(dialog, "cbGameType", JComboBox.class);
+        cbDeckType = findFieldTyped(dialog, "cbDeckType", JComboBox.class);
+        txtName = findFieldTyped(dialog, "txtName", JTextField.class);
+        btnOK = findFieldTyped(dialog, "btnOK", JButton.class);
+        btnCancel = findFieldTyped(dialog, "btnCancel", JButton.class);
+        chkRollbackTurnsAllowed = findFieldTyped(dialog, "chkRollbackTurnsAllowed", JCheckBox.class);
+        chkSpectatorsAllowed = findFieldTyped(dialog, "chkSpectatorsAllowed", JCheckBox.class);
+        chkRated = findFieldTyped(dialog, "chkRated", JCheckBox.class);
+        spnNumWins = findFieldTyped(dialog, "spnNumWins", JSpinner.class);
+        cbTimeLimit = findFieldTyped(dialog, "cbTimeLimit", JComboBox.class);
+        cbSkillLevel = findFieldTyped(dialog, "cbSkillLevel", JComboBox.class);
+        pnlOtherPlayers = findFieldTyped(dialog, "pnlOtherPlayers", Container.class);
+        player1Panel = findFieldTyped(dialog, "player1Panel", Component.class);
 
         // Map components to labels
         addLabel(txtName, "Game name");
@@ -121,17 +120,17 @@ public class NewTableDialogHandler {
         addLabel(btnCancel, "Cancel");
 
         // Additional fields that may exist
-        addFieldLabel(clazz, "txtPassword", "Password");
-        addFieldLabel(clazz, "cbBufferTime", "Buffer time");
-        addFieldLabel(clazz, "spnNumPlayers", "Number of players");
-        addFieldLabel(clazz, "spnQuitRatio", "Allowed quit percentage");
-        addFieldLabel(clazz, "spnMinimumRating", "Minimum rating");
-        addFieldLabel(clazz, "spnEdhPowerLevel", "Commander power level");
-        addFieldLabel(clazz, "cbRange", "Range of influence");
-        addFieldLabel(clazz, "cbAttackOption", "Attack option");
-        addFieldLabel(clazz, "btnCustomOptions", "Custom options");
-        addFieldLabel(clazz, "btnSettingsLoad", "Load settings");
-        addFieldLabel(clazz, "btnSettingsSave", "Save settings");
+        addFieldLabel("txtPassword", "Password");
+        addFieldLabel("cbBufferTime", "Buffer time");
+        addFieldLabel("spnNumPlayers", "Number of players");
+        addFieldLabel("spnQuitRatio", "Allowed quit percentage");
+        addFieldLabel("spnMinimumRating", "Minimum rating");
+        addFieldLabel("spnEdhPowerLevel", "Commander power level");
+        addFieldLabel("cbRange", "Range of influence");
+        addFieldLabel("cbAttackOption", "Attack option");
+        addFieldLabel("btnCustomOptions", "Custom options");
+        addFieldLabel("btnSettingsLoad", "Load settings");
+        addFieldLabel("btnSettingsSave", "Save settings");
 
         // Discover player panel components
         discoverPlayerPanels();
@@ -164,15 +163,15 @@ public class NewTableDialogHandler {
             Class<?> clazz = panel.getClass();
 
             // Player type combo (Human/Computer Mad/Computer Monte Carlo, etc.)
-            JComboBox<?> cbPlayerType = getFieldFromObject(panel, "cbPlayerType", JComboBox.class);
+            JComboBox<?> cbPlayerType = findFieldTyped(panel,"cbPlayerType", JComboBox.class);
             if (cbPlayerType != null) {
                 addLabel(cbPlayerType, prefix + " type");
             }
 
             // The NewPlayerPanel within this TablePlayerPanel
-            Component newPlayerPanel = getFieldFromObject(panel, "newPlayerPanel", Component.class);
+            Component newPlayerPanel = findFieldTyped(panel,"newPlayerPanel", Component.class);
             if (newPlayerPanel == null) {
-                newPlayerPanel = getFieldFromObject(panel, "playerPanel", Component.class);
+                newPlayerPanel = findFieldTyped(panel,"playerPanel", Component.class);
             }
             if (newPlayerPanel != null) {
                 discoverNewPlayerPanel(newPlayerPanel, prefix);
@@ -186,25 +185,25 @@ public class NewTableDialogHandler {
         if (panel == null) return;
         try {
             // Deck file text field (field name is txtPlayerDeck in NewPlayerPanel)
-            JTextField txtDeck = getFieldFromObject(panel, "txtPlayerDeck", JTextField.class);
+            JTextField txtDeck = findFieldTyped(panel,"txtPlayerDeck", JTextField.class);
             if (txtDeck != null) {
                 addLabel(txtDeck, prefix + " deck file");
             }
 
             // Browse button for deck (field name is btnPlayerDeck in NewPlayerPanel)
-            JButton btnDeckBrowse = getFieldFromObject(panel, "btnPlayerDeck", JButton.class);
+            JButton btnDeckBrowse = findFieldTyped(panel,"btnPlayerDeck", JButton.class);
             if (btnDeckBrowse != null) {
                 addLabel(btnDeckBrowse, prefix + " browse deck");
             }
 
             // Generate deck button
-            JButton btnGenerate = getFieldFromObject(panel, "btnGenerate", JButton.class);
+            JButton btnGenerate = findFieldTyped(panel,"btnGenerate", JButton.class);
             if (btnGenerate != null) {
                 addLabel(btnGenerate, prefix + " generate random deck");
             }
 
             // Skill level spinner
-            JSpinner spnLevel = getFieldFromObject(panel, "spnLevel", JSpinner.class);
+            JSpinner spnLevel = findFieldTyped(panel,"spnLevel", JSpinner.class);
             if (spnLevel != null) {
                 addLabel(spnLevel, prefix + " AI skill level");
             }
@@ -352,7 +351,7 @@ public class NewTableDialogHandler {
         }
 
         // Find the deck text field in this panel (field name is txtPlayerDeck in NewPlayerPanel)
-        JTextField txtDeck = getFieldFromObject(playerPanel, "txtPlayerDeck", JTextField.class);
+        JTextField txtDeck = findFieldTyped(playerPanel, "txtPlayerDeck", JTextField.class);
         if (txtDeck == null) {
             speak("Deck field not found for " + playerName + ".");
             return;
@@ -380,9 +379,9 @@ public class NewTableDialogHandler {
 
         // Find the first opponent's NewPlayerPanel
         for (Component child : pnlOtherPlayers.getComponents()) {
-            Component newPlayerPanel = getFieldFromObject(child, "newPlayerPanel", Component.class);
+            Component newPlayerPanel = findFieldTyped(child,"newPlayerPanel", Component.class);
             if (newPlayerPanel == null) {
-                newPlayerPanel = getFieldFromObject(child, "playerPanel", Component.class);
+                newPlayerPanel = findFieldTyped(child,"playerPanel", Component.class);
             }
             if (newPlayerPanel != null) {
                 openDeckPicker(newPlayerPanel, "opponent");
@@ -466,16 +465,16 @@ public class NewTableDialogHandler {
 
     private String readPlayerInfo(Component tablePlayerPanel, int playerNum) {
         try {
-            JComboBox<?> cbPlayerType = getFieldFromObject(tablePlayerPanel, "cbPlayerType", JComboBox.class);
+            JComboBox<?> cbPlayerType = findFieldTyped(tablePlayerPanel,"cbPlayerType", JComboBox.class);
             if (cbPlayerType != null && cbPlayerType.getSelectedItem() != null) {
                 String type = cbPlayerType.getSelectedItem().toString();
                 StringBuilder sb = new StringBuilder();
                 sb.append("Player ").append(playerNum).append(": ").append(type).append(". ");
 
                 // Try to read deck
-                Component newPlayerPanel = getFieldFromObject(tablePlayerPanel, "newPlayerPanel", Component.class);
+                Component newPlayerPanel = findFieldTyped(tablePlayerPanel,"newPlayerPanel", Component.class);
                 if (newPlayerPanel == null) {
-                    newPlayerPanel = getFieldFromObject(tablePlayerPanel, "playerPanel", Component.class);
+                    newPlayerPanel = findFieldTyped(tablePlayerPanel,"playerPanel", Component.class);
                 }
                 if (newPlayerPanel != null) {
                     String deck = readDeckFromPanel(newPlayerPanel);
@@ -493,7 +492,7 @@ public class NewTableDialogHandler {
 
     private String readDeckFromPanel(Component panel) {
         try {
-            JTextField txtDeck = getFieldFromObject(panel, "txtPlayerDeck", JTextField.class);
+            JTextField txtDeck = findFieldTyped(panel,"txtPlayerDeck", JTextField.class);
             if (txtDeck != null) {
                 String text = txtDeck.getText();
                 if (text != null && !text.isEmpty()) {
@@ -519,54 +518,11 @@ public class NewTableDialogHandler {
         }
     }
 
-    private void addFieldLabel(Class<?> clazz, String fieldName, String label) {
-        try {
-            Component comp = getField(clazz, fieldName, Component.class);
-            if (comp != null) {
-                componentLabels.put(comp, label);
-            }
-        } catch (Exception e) {
-            // Field doesn't exist, skip
+    private void addFieldLabel(String fieldName, String label) {
+        Component comp = findFieldTyped(dialog, fieldName, Component.class);
+        if (comp != null) {
+            componentLabels.put(comp, label);
         }
-    }
-
-    @SuppressWarnings("unchecked")
-    private <T> T getField(Class<?> clazz, String name, Class<T> type) {
-        try {
-            Field field = clazz.getDeclaredField(name);
-            field.setAccessible(true);
-            Object val = field.get(dialog);
-            if (type.isInstance(val)) {
-                return (T) val;
-            }
-        } catch (Exception e) {
-            // Field doesn't exist
-        }
-        return null;
-    }
-
-    @SuppressWarnings("unchecked")
-    private <T> T getFieldFromObject(Object target, String name, Class<T> type) {
-        if (target == null) return null;
-        try {
-            Class<?> clazz = target.getClass();
-            while (clazz != null) {
-                try {
-                    Field field = clazz.getDeclaredField(name);
-                    field.setAccessible(true);
-                    Object val = field.get(target);
-                    if (type.isInstance(val)) {
-                        return (T) val;
-                    }
-                    return null;
-                } catch (NoSuchFieldException e) {
-                    clazz = clazz.getSuperclass();
-                }
-            }
-        } catch (Exception e) {
-            // Field doesn't exist
-        }
-        return null;
     }
 
     private void speak(String text) {

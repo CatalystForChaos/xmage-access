@@ -3,10 +3,11 @@ package xmageaccess.ui;
 import xmageaccess.AccessibilityManager;
 import xmageaccess.speech.SpeechOutput;
 
+import static xmageaccess.util.ReflectionUtils.*;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
-import java.lang.reflect.Field;
 
 /**
  * Accessibility handler for the XMage PickNumberDialog.
@@ -49,10 +50,9 @@ public class PickNumberDialogHandler {
     }
 
     private void discoverComponents() {
-        Class<?> clazz = dialog.getClass();
-        editAmount = getField(clazz, "editAmount", JSpinner.class);
-        buttonOk = getField(clazz, "buttonOk", JButton.class);
-        buttonCancel = getField(clazz, "buttonCancel", JButton.class);
+        editAmount = findFieldTyped(dialog,"editAmount", JSpinner.class);
+        buttonOk = findFieldTyped(dialog,"buttonOk", JButton.class);
+        buttonCancel = findFieldTyped(dialog,"buttonCancel", JButton.class);
     }
 
     private void announceDialog() {
@@ -144,32 +144,16 @@ public class PickNumberDialogHandler {
     }
 
     private String readEditorPane(String fieldName) {
-        try {
-            Field field = findField(dialog.getClass(), fieldName);
-            if (field == null) return null;
-            field.setAccessible(true);
-            Object pane = field.get(dialog);
-            if (pane instanceof JEditorPane) {
-                String text = ((JEditorPane) pane).getText();
-                text = text.replaceAll("<[^>]*>", "").trim();
-                text = text.replaceAll("\\s+", " ");
-                return text;
-            }
-        } catch (Exception ignored) {}
-        return null;
+        JEditorPane pane = findFieldTyped(dialog, fieldName, JEditorPane.class);
+        if (pane == null) return null;
+        String text = pane.getText();
+        if (text == null) return null;
+        return text.replaceAll("<[^>]*>", "").replaceAll("\\s+", " ").trim();
     }
 
     private String readLabel(String fieldName) {
-        try {
-            Field field = findField(dialog.getClass(), fieldName);
-            if (field == null) return null;
-            field.setAccessible(true);
-            Object label = field.get(dialog);
-            if (label instanceof JLabel) {
-                return ((JLabel) label).getText();
-            }
-        } catch (Exception ignored) {}
-        return null;
+        JLabel lbl = findFieldTyped(dialog, fieldName, JLabel.class);
+        return lbl != null ? lbl.getText() : null;
     }
 
     private boolean isDialogVisible() {
@@ -180,29 +164,6 @@ public class PickNumberDialogHandler {
             c = c.getParent();
         }
         return true;
-    }
-
-    private Field findField(Class<?> clazz, String name) {
-        while (clazz != null) {
-            try {
-                return clazz.getDeclaredField(name);
-            } catch (NoSuchFieldException e) {
-                clazz = clazz.getSuperclass();
-            }
-        }
-        return null;
-    }
-
-    @SuppressWarnings("unchecked")
-    private <T> T getField(Class<?> clazz, String name, Class<T> type) {
-        try {
-            Field field = findField(clazz, name);
-            if (field == null) return null;
-            field.setAccessible(true);
-            Object val = field.get(dialog);
-            if (type.isInstance(val)) return (T) val;
-        } catch (Exception ignored) {}
-        return null;
     }
 
     private void speak(String text) {

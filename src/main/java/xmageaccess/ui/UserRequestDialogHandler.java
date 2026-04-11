@@ -3,10 +3,11 @@ package xmageaccess.ui;
 import xmageaccess.AccessibilityManager;
 import xmageaccess.speech.SpeechOutput;
 
+import static xmageaccess.util.ReflectionUtils.*;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
-import java.lang.reflect.Field;
 
 /**
  * Accessibility handler for the XMage UserRequestDialog.
@@ -50,11 +51,10 @@ public class UserRequestDialogHandler {
     }
 
     private void discoverComponents() {
-        Class<?> clazz = dialog.getClass();
-        lblText = getField(clazz, "lblText", JLabel.class);
-        btn1 = getField(clazz, "btn1", JButton.class);
-        btn2 = getField(clazz, "btn2", JButton.class);
-        btn3 = getField(clazz, "btn3", JButton.class);
+        lblText = findFieldTyped(dialog,"lblText", JLabel.class);
+        btn1 = findFieldTyped(dialog,"btn1", JButton.class);
+        btn2 = findFieldTyped(dialog,"btn2", JButton.class);
+        btn3 = findFieldTyped(dialog,"btn3", JButton.class);
     }
 
     private void announceDialog() {
@@ -134,29 +134,6 @@ public class UserRequestDialogHandler {
             c = c.getParent();
         }
         return true;
-    }
-
-    private Field findField(Class<?> clazz, String name) {
-        while (clazz != null) {
-            try {
-                return clazz.getDeclaredField(name);
-            } catch (NoSuchFieldException e) {
-                clazz = clazz.getSuperclass();
-            }
-        }
-        return null;
-    }
-
-    @SuppressWarnings("unchecked")
-    private <T> T getField(Class<?> clazz, String name, Class<T> type) {
-        try {
-            Field field = findField(clazz, name);
-            if (field == null) return null;
-            field.setAccessible(true);
-            Object val = field.get(dialog);
-            if (type.isInstance(val)) return (T) val;
-        } catch (Exception ignored) {}
-        return null;
     }
 
     private void speak(String text) {

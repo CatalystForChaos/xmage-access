@@ -41,6 +41,13 @@ public class AccessibilityManager {
             uiWatcher.start();
         });
 
+        // Clean up native resources on shutdown
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            if (speech != null) {
+                speech.shutdown();
+            }
+        }));
+
         // Announce that the mod is loaded
         speech.speak("XMage Access loaded.");
 

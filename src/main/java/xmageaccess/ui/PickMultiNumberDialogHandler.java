@@ -3,10 +3,12 @@ package xmageaccess.ui;
 import xmageaccess.AccessibilityManager;
 import xmageaccess.speech.SpeechOutput;
 
+import static xmageaccess.util.ReflectionUtils.*;
+import static xmageaccess.util.TextUtils.*;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
-import java.lang.reflect.Field;
 import java.util.List;
 
 /**
@@ -53,11 +55,10 @@ public class PickMultiNumberDialogHandler {
 
     @SuppressWarnings("unchecked")
     private void discoverComponents() {
-        Class<?> clazz = dialog.getClass();
-        infoList = getField(clazz, "infoList", List.class);
-        spinnerList = getField(clazz, "spinnerList", List.class);
-        btnOk = getField(clazz, "btnOk", JButton.class);
-        btnCancel = getField(clazz, "btnCancel", JButton.class);
+        infoList = findFieldTyped(dialog, "infoList", List.class);
+        spinnerList = findFieldTyped(dialog, "spinnerList", List.class);
+        btnOk = findFieldTyped(dialog, "btnOk", JButton.class);
+        btnCancel = findFieldTyped(dialog, "btnCancel", JButton.class);
     }
 
     private void announceDialog() {
@@ -218,22 +219,9 @@ public class PickMultiNumberDialogHandler {
     }
 
     private String readLabelText(String fieldName) {
-        try {
-            Field field = findField(dialog.getClass(), fieldName);
-            if (field == null) return null;
-            field.setAccessible(true);
-            Object label = field.get(dialog);
-            if (label instanceof JLabel) {
-                String text = ((JLabel) label).getText();
-                return cleanHtml(text);
-            }
-        } catch (Exception ignored) {}
-        return null;
-    }
-
-    private String cleanHtml(String text) {
-        if (text == null) return "";
-        return text.replaceAll("<[^>]*>", "").replaceAll("&nbsp;", " ").replaceAll("\\s+", " ").trim();
+        JLabel lbl = findFieldTyped(dialog, fieldName, JLabel.class);
+        if (lbl == null) return null;
+        return cleanHtml(lbl.getText());
     }
 
     private boolean isDialogVisible() {
@@ -244,29 +232,6 @@ public class PickMultiNumberDialogHandler {
             c = c.getParent();
         }
         return true;
-    }
-
-    private Field findField(Class<?> clazz, String name) {
-        while (clazz != null) {
-            try {
-                return clazz.getDeclaredField(name);
-            } catch (NoSuchFieldException e) {
-                clazz = clazz.getSuperclass();
-            }
-        }
-        return null;
-    }
-
-    @SuppressWarnings("unchecked")
-    private <T> T getField(Class<?> clazz, String name, Class<T> type) {
-        try {
-            Field field = findField(clazz, name);
-            if (field == null) return null;
-            field.setAccessible(true);
-            Object val = field.get(dialog);
-            if (type.isInstance(val)) return (T) val;
-        } catch (Exception ignored) {}
-        return null;
     }
 
     private void speak(String text) {

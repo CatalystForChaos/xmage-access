@@ -3,11 +3,11 @@ package xmageaccess.ui;
 import xmageaccess.AccessibilityManager;
 import xmageaccess.speech.SpeechOutput;
 
+import static xmageaccess.util.ReflectionUtils.*;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 
 /**
  * Accessibility handler for the XMage PickPileDialog.
@@ -50,11 +50,10 @@ public class PickPileDialogHandler {
     }
 
     private void discoverComponents() {
-        Class<?> clazz = dialog.getClass();
-        btnChoosePile1 = getField(clazz, "btnChoosePile1", JButton.class);
-        btnChoosePile2 = getField(clazz, "btnChoosePile2", JButton.class);
-        pile1 = getField(clazz, "pile1", Component.class);
-        pile2 = getField(clazz, "pile2", Component.class);
+        btnChoosePile1 = findFieldTyped(dialog,"btnChoosePile1", JButton.class);
+        btnChoosePile2 = findFieldTyped(dialog,"btnChoosePile2", JButton.class);
+        pile1 = findFieldTyped(dialog,"pile1", Component.class);
+        pile2 = findFieldTyped(dialog,"pile2", Component.class);
     }
 
     private void announcePiles() {
@@ -80,10 +79,7 @@ public class PickPileDialogHandler {
 
         try {
             // CardArea has a JLayeredPane field named "cardArea" containing MageCard components
-            Field cardAreaField = findField(cardArea.getClass(), "cardArea");
-            if (cardAreaField == null) return "";
-            cardAreaField.setAccessible(true);
-            Object innerPanel = cardAreaField.get(cardArea);
+            Object innerPanel = findFieldDeep(cardArea, "cardArea");
 
             if (!(innerPanel instanceof Container)) return "";
 
@@ -110,16 +106,9 @@ public class PickPileDialogHandler {
     }
 
     private String getCardName(Component mageCard) {
-        try {
-            // MageCard.getOriginal() returns CardView, CardView.getName() returns name
-            Method getOriginal = mageCard.getClass().getMethod("getOriginal");
-            Object cardView = getOriginal.invoke(mageCard);
-            if (cardView == null) return null;
-
-            Method getName = cardView.getClass().getMethod("getName");
-            return (String) getName.invoke(cardView);
-        } catch (Exception ignored) {}
-        return null;
+        // MageCard.getOriginal() returns CardView, CardView.getName() returns name
+        Object cardView = callMethod(mageCard, "getOriginal");
+        return cardView != null ? callString(cardView, "getName") : null;
     }
 
     private void addKeyboardShortcuts() {
@@ -164,29 +153,6 @@ public class PickPileDialogHandler {
             c = c.getParent();
         }
         return true;
-    }
-
-    private Field findField(Class<?> clazz, String name) {
-        while (clazz != null) {
-            try {
-                return clazz.getDeclaredField(name);
-            } catch (NoSuchFieldException e) {
-                clazz = clazz.getSuperclass();
-            }
-        }
-        return null;
-    }
-
-    @SuppressWarnings("unchecked")
-    private <T> T getField(Class<?> clazz, String name, Class<T> type) {
-        try {
-            Field field = findField(clazz, name);
-            if (field == null) return null;
-            field.setAccessible(true);
-            Object val = field.get(dialog);
-            if (type.isInstance(val)) return (T) val;
-        } catch (Exception ignored) {}
-        return null;
     }
 
     private void speak(String text) {
