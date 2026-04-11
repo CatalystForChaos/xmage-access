@@ -38,7 +38,8 @@ xmage-access/
     ├── handlers/
     │   └── GameStateTracker.java   # Tracks game state, generates announcements
     ├── hooks/
-    │   └── GamePanelHooks.java     # ByteBuddy instrumentation hooks
+    │   ├── GamePanelHooks.java     # ByteBuddy instrumentation hooks
+    │   └── GameStateTrackerBridge.java # Cached reflection bridge for hooks
     ├── launcher/
     │   └── AccessibleLauncher.java # Toggle-checkbox launcher UI
     ├── speech/                     # Platform-specific TTS
@@ -49,6 +50,9 @@ xmage-access/
     │   ├── TolkLibrary.java        # JNA bindings for Tolk.dll
     │   ├── MacOSSpeech.java        # macOS 'say' command
     │   └── LinuxSpeech.java        # speech-dispatcher
+    ├── util/                        # Shared utilities
+    │   ├── ReflectionUtils.java    # Static reflection helpers (findFieldTyped, callMethod, etc.)
+    │   └── TextUtils.java          # Text formatting (cleanHtml, formatManaCost)
     └── ui/                         # Accessible UI layer (~30 files)
         ├── UIWatcher.java          # AWT event listener, UI scanner
         ├── AccessibleGameWindow.java       # Main gameplay window
@@ -103,9 +107,12 @@ All dependencies are shaded into the final JAR via `maven-shade-plugin`.
 
 ### Reflection usage
 
-All interaction with XMage classes uses reflection since XMage is not a compile-time dependency. When accessing XMage components:
-- Use `Class.forName()` or `component.getClass().getName()` to identify XMage types
-- Use `getMethod()`/`getDeclaredField()` with `setAccessible(true)` to read state
+All interaction with XMage classes uses reflection since XMage is not a compile-time dependency. Shared reflection helpers live in `xmageaccess.util.ReflectionUtils`:
+- `findFieldTyped(target, name, type)` — walk class hierarchy, return typed field value
+- `findFieldDeep(target, name)` — walk class hierarchy, return field value as Object
+- `callMethod(obj, methodName)` / `callString` / `callInt` / `callBool` — invoke no-arg methods
+- `callMethodWithArg(obj, name, argType, arg)` — invoke single-arg method
+- Import via `import static xmageaccess.util.ReflectionUtils.*;`
 - Always wrap reflection calls in try-catch — XMage internals may change between versions
 
 ### Speech output
