@@ -56,10 +56,18 @@ public class PickNumberDialogHandler {
     }
 
     private void announceDialog() {
-        StringBuilder sb = new StringBuilder("Number selection. ");
-
         // Read message
         String message = readEditorPane("textMessage");
+        boolean isDamageAssignment = false;
+        if (message != null && !message.isEmpty()) {
+            String lowerMessage = message.toLowerCase();
+            isDamageAssignment = lowerMessage.contains("assign")
+                    && lowerMessage.contains("damage");
+        }
+
+        StringBuilder sb = new StringBuilder(isDamageAssignment
+                ? "Combat damage assignment. " : "Number selection. ");
+
         if (message != null && !message.isEmpty()) {
             sb.append(message).append(". ");
         }

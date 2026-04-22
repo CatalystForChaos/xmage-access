@@ -89,8 +89,13 @@ public class GameStateTracker {
     /**
      * Called when the game ends.
      */
-    public void onGameEnd(String message) {
+    public synchronized void onGameEnd(String message) {
         gameActive = false;
+        lastTurn = -1;
+        lastStep = "";
+        lastActivePlayer = "";
+        lastPriorityPlayer = "";
+        lastLifeTotals.clear();
         if (message != null && !message.isEmpty()) {
             speak(message);
         }
