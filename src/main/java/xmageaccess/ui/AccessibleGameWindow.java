@@ -396,7 +396,9 @@ public class AccessibleGameWindow extends JFrame {
                             display.append(" ").append(power).append("/").append(toughness);
                         }
                     }
-                    if (manaCost != null && !manaCost.isEmpty()) {
+                    if (callBool(cardView, "isLand")) {
+                        display.append(", Land");
+                    } else if (manaCost != null && !manaCost.isEmpty()) {
                         display.append(", ").append(formatManaCost(manaCost));
                     }
                     items.add(new ZoneItem(display.toString(), formatCardDetailed(cardView),
@@ -459,11 +461,13 @@ public class AccessibleGameWindow extends JFrame {
     private void addPermanentItem(List<ZoneItem> items, Object perm, String playerName) {
         String name = callString(perm, "getName");
         if (name == null) return;
+        boolean isToken = callBool(perm, "isToken");
 
         StringBuilder display = new StringBuilder();
         if (playerName != null) {
             display.append(playerName).append(": ");
         }
+        if (isToken) display.append("Token ");
         display.append(name);
 
         if (callBool(perm, "isCreature")) {
@@ -471,6 +475,12 @@ public class AccessibleGameWindow extends JFrame {
             String toughness = callString(perm, "getToughness");
             if (power != null && toughness != null) {
                 display.append(" ").append(power).append("/").append(toughness);
+            }
+        }
+        if (callBool(perm, "isPlanesWalker")) {
+            String loyalty = callString(perm, "getLoyalty");
+            if (loyalty != null && !loyalty.isEmpty() && !"0".equals(loyalty)) {
+                display.append(" loyalty ").append(loyalty);
             }
         }
         if (callBool(perm, "isTapped")) display.append(", tapped");
@@ -1044,6 +1054,12 @@ public class AccessibleGameWindow extends JFrame {
             String power = callString(perm, "getPower");
             String toughness = callString(perm, "getToughness");
             if (power != null && toughness != null) sb.append(power).append("/").append(toughness).append(". ");
+        }
+        if (callBool(perm, "isPlanesWalker")) {
+            String loyalty = callString(perm, "getLoyalty");
+            if (loyalty != null && !loyalty.isEmpty()) {
+                sb.append("Loyalty: ").append(loyalty).append(". ");
+            }
         }
 
         if (isTapped) sb.append("Tapped. ");

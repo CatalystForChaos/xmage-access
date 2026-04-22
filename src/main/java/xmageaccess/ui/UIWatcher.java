@@ -33,8 +33,8 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
     private AccessibleLobbyWindow lobbyWindow;
     private Timer scanTimer;
     private volatile String lastContext = "";
-    private boolean connectDialogWasVisible = false;
-    private boolean lobbyAnnounced = false;
+    private volatile boolean connectDialogWasVisible = false;
+    private volatile boolean lobbyAnnounced = false;
 
     public void start() {
         // Listen for window events (open, close, activate) and key events (global shortcuts)

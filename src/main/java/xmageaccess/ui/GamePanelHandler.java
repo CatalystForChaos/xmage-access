@@ -34,6 +34,7 @@ import java.util.UUID;
  *   Ctrl+F9         - Read mana pool
  *   Ctrl+F10        - Read command zone
  *   Ctrl+F11        - Read revealed/looked-at cards
+ *   Ctrl+F12        - Quick status (turn, phase, life, hand/library count)
  *   Ctrl+Left/Right - Navigate hand cards
  *   Ctrl+Enter      - Play/cast card at hand cursor
  *   Ctrl+D          - Read detailed card info at hand cursor
@@ -164,6 +165,17 @@ public class GamePanelHandler {
         bfPermanents.clear();
         bfPlayerNames.clear();
         rediscoverComponents();
+        // Announce game context after reset so the player knows what's happening
+        SwingUtilities.invokeLater(() -> {
+            try {
+                lastGameData = findFieldDeep(gamePanel, "lastGameData");
+                if (lastGameData != null) {
+                    readPlayerInfo();
+                }
+            } catch (Exception e) {
+                // Ignore
+            }
+        });
     }
 
     private void discoverComponents() {
@@ -256,6 +268,7 @@ public class GamePanelHandler {
                             case KeyEvent.VK_F9: readManaPool(); return true;
                             case KeyEvent.VK_F10: readCommandZone(); return true;
                             case KeyEvent.VK_F11: readRevealed(); return true;
+                            case KeyEvent.VK_F12: readQuickStatus(); return true;
                             // Hand navigation
                             case KeyEvent.VK_LEFT: navigateHand(-1); return true;
                             case KeyEvent.VK_RIGHT: navigateHand(1); return true;
@@ -650,10 +663,11 @@ public class GamePanelHandler {
         bfPlayerIndex += direction;
         if (bfPlayerIndex < 0) bfPlayerIndex = bfPlayerNames.size() - 1;
         if (bfPlayerIndex >= bfPlayerNames.size()) bfPlayerIndex = 0;
-        bfCursorIndex = 0;
+        if (bfCursorIndex >= bfPermanents.size()) bfCursorIndex = 0;
         refreshBattlefieldCache();
         String name = bfPlayerNames.get(bfPlayerIndex);
-        speak(name + "'s battlefield. " + bfPermanents.size() + " permanents.");
+        speak(name + ", player " + (bfPlayerIndex + 1) + " of " + bfPlayerNames.size()
+                + ". " + bfPermanents.size() + " permanents.");
     }
 
     private void clickBattlefieldPermanent() {
@@ -1105,6 +1119,29 @@ public class GamePanelHandler {
         }
     }
 
+    private void readQuickStatus() {
+        Object gameView = getGameView();
+        if (gameView == null) { speak("No game data."); return; }
+        StringBuilder sb = new StringBuilder();
+        int turn = callInt(gameView, "getTurn");
+        String step = callString(gameView, "getStep");
+        String activePlayer = callString(gameView, "getActivePlayerName");
+        if (turn > 0) sb.append("Turn ").append(turn).append(". ");
+        if (activePlayer != null) sb.append(activePlayer).append("'s turn. ");
+        if (step != null) sb.append(step).append(". ");
+
+        Object myPlayer = getMyPlayer(gameView);
+        if (myPlayer != null) {
+            int life = callInt(myPlayer, "getLife");
+            int hand = callInt(myPlayer, "getHandCount");
+            int library = callInt(myPlayer, "getLibraryCount");
+            sb.append("Life: ").append(life);
+            sb.append(", hand: ").append(hand);
+            sb.append(", library: ").append(library).append(". ");
+        }
+        speak(sb.toString());
+    }
+
     // ========== EXISTING ZONE READERS ==========
 
     private void readCurrentPrompt() {
@@ -1210,7 +1247,16 @@ public class GamePanelHandler {
             String manaCost = callString(cardView, "getManaCostStr");
             if (name != null) {
                 sb.append(i).append(": ").append(name);
-                if (manaCost != null && !manaCost.isEmpty()) {
+                if (callBool(cardView, "isCreature")) {
+                    String power = callString(cardView, "getPower");
+                    String toughness = callString(cardView, "getToughness");
+                    if (power != null && toughness != null) {
+                        sb.append(" ").append(power).append("/").append(toughness);
+                    }
+                }
+                if (callBool(cardView, "isLand")) {
+                    sb.append(", Land");
+                } else if (manaCost != null && !manaCost.isEmpty()) {
                     sb.append(", ").append(formatManaCost(manaCost));
                 }
                 sb.append(". ");
@@ -1257,11 +1303,18 @@ public class GamePanelHandler {
                     boolean isCreature = callBool(perm, "isCreature");
                     boolean isLand = callBool(perm, "isLand");
                     boolean isTapped = callBool(perm, "isTapped");
-                    String desc = permName;
+                    boolean isToken = callBool(perm, "isToken");
+                    String desc = (isToken ? "Token " : "") + permName;
                     if (isCreature) {
                         String power = callString(perm, "getPower");
                         String toughness = callString(perm, "getToughness");
                         if (power != null && toughness != null) desc += " " + power + "/" + toughness;
+                    }
+                    if (callBool(perm, "isPlanesWalker")) {
+                        String loyalty = callString(perm, "getLoyalty");
+                        if (loyalty != null && !loyalty.isEmpty() && !"0".equals(loyalty)) {
+                            desc += " loyalty " + loyalty;
+                        }
                     }
                     if (isTapped) desc += " tapped";
 
@@ -1310,12 +1363,38 @@ public class GamePanelHandler {
         if (!(stack instanceof Map)) { speak("No stack data."); return; }
         Map<?, ?> stackMap = (Map<?, ?>) stack;
         if (stackMap.isEmpty()) { speak("Stack is empty."); return; }
+
+        // Build player name map for controller lookup
+        Object playersList = callMethod(gameView, "getPlayers");
+        Map<Object, String> playerNames = new HashMap<>();
+        if (playersList instanceof List) {
+            for (Object p : (List<?>) playersList) {
+                Object pid = callMethod(p, "getPlayerId");
+                String pname = callString(p, "getName");
+                if (pid != null && pname != null) playerNames.put(pid, pname);
+            }
+        }
+
         StringBuilder sb = new StringBuilder(stackMap.size() + " on the stack. ");
         int idx = 1;
         for (Object cardView : stackMap.values()) {
             String name = callString(cardView, "getName");
             if (name == null) continue;
-            sb.append(idx++).append(": ").append(name);
+            Object controllerId = callMethod(cardView, "getControllerId");
+            String owner = playerNames.get(controllerId);
+            sb.append(idx++).append(": ");
+            if (owner != null) sb.append(owner).append("'s ");
+            sb.append(name);
+            Object targets = callMethod(cardView, "getTargets");
+            if (targets instanceof List && !((List<?>) targets).isEmpty()) {
+                sb.append(" targeting ");
+                boolean first = true;
+                for (Object t : (List<?>) targets) {
+                    if (!first) sb.append(", ");
+                    first = false;
+                    sb.append(t.toString());
+                }
+            }
             String manaCost = callString(cardView, "getManaCostStr");
             if (manaCost != null && !manaCost.isEmpty()) {
                 sb.append(", ").append(formatManaCost(manaCost));
