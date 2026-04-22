@@ -102,20 +102,20 @@ public class GameStateTracker {
     }
 
     private synchronized void announceStateChanges(Object gameView) throws Exception {
-        StringBuilder announcement = new StringBuilder();
+        StringBuilder primary = new StringBuilder();
 
         // Extract turn number
         int turn = callIntMethod(gameView, "getTurn");
         if (turn != lastTurn && turn > 0) {
             lastTurn = turn;
-            announcement.append("Turn ").append(turn).append(". ");
+            primary.append("Turn ").append(turn).append(". ");
         }
 
         // Extract active player
         String activePlayer = callStringMethod(gameView, "getActivePlayerName");
         if (activePlayer != null && !activePlayer.equals(lastActivePlayer)) {
             lastActivePlayer = activePlayer;
-            announcement.append(activePlayer).append("'s turn. ");
+            primary.append(activePlayer).append("'s turn. ");
         }
 
         // Extract step
@@ -123,21 +123,25 @@ public class GameStateTracker {
         String step = stepObj != null ? stepObj.toString() : "";
         if (!step.isEmpty() && !step.equals(lastStep)) {
             lastStep = step;
-            announcement.append(step).append(". ");
+            primary.append(step).append(". ");
         }
 
         // Extract priority player
         String priorityPlayer = callStringMethod(gameView, "getPriorityPlayerName");
         if (priorityPlayer != null && !priorityPlayer.equals(lastPriorityPlayer)) {
             lastPriorityPlayer = priorityPlayer;
-            // Only announce priority changes when it's not the active player
-            // (to reduce verbosity - active player normally has priority)
             if (!priorityPlayer.equals(lastActivePlayer)) {
-                announcement.append("Priority: ").append(priorityPlayer).append(". ");
+                primary.append("Priority: ").append(priorityPlayer).append(". ");
             }
         }
 
-        // Extract life totals from players
+        // Speak primary changes immediately (interrupting)
+        String primaryText = primary.toString().trim();
+        if (!primaryText.isEmpty()) {
+            speak(primaryText);
+        }
+
+        // Extract life totals — queue these so they don't get cut off
         Object playersList = callMethod(gameView, "getPlayers");
         if (playersList instanceof List) {
             for (Object player : (List<?>) playersList) {
@@ -149,18 +153,11 @@ public class GameStateTracker {
                     if (previousLife != null && previousLife != life) {
                         int change = life - previousLife;
                         String changeText = change > 0 ? "+" + change : String.valueOf(change);
-                        announcement.append(name).append(" life: ")
-                                .append(life).append(" (").append(changeText).append("). ");
+                        speakQueued(name + " life: " + life + " (" + changeText + ").");
                     }
                     lastLifeTotals.put(name, life);
                 }
             }
-        }
-
-        // Speak if there's anything to announce
-        String text = announcement.toString().trim();
-        if (!text.isEmpty()) {
-            speak(text);
         }
     }
 
@@ -168,6 +165,13 @@ public class GameStateTracker {
         SpeechOutput speech = AccessibilityManager.getInstance().getSpeech();
         if (speech != null) {
             speech.speak(text);
+        }
+    }
+
+    private void speakQueued(String text) {
+        SpeechOutput speech = AccessibilityManager.getInstance().getSpeech();
+        if (speech != null) {
+            speech.speakQueued(text);
         }
     }
 

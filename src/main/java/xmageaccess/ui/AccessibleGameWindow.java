@@ -387,11 +387,19 @@ public class AccessibleGameWindow extends JFrame {
                 for (Object cardView : ((Map<?, ?>) hand).values()) {
                     String name = callString(cardView, "getName");
                     String manaCost = callString(cardView, "getManaCostStr");
-                    String display = (i++) + ": " + (name != null ? name : "Unknown");
-                    if (manaCost != null && !manaCost.isEmpty()) {
-                        display += ", " + formatManaCost(manaCost);
+                    StringBuilder display = new StringBuilder();
+                    display.append(i++).append(": ").append(name != null ? name : "Unknown");
+                    if (callBool(cardView, "isCreature")) {
+                        String power = callString(cardView, "getPower");
+                        String toughness = callString(cardView, "getToughness");
+                        if (power != null && toughness != null) {
+                            display.append(" ").append(power).append("/").append(toughness);
+                        }
                     }
-                    items.add(new ZoneItem(display, formatCardDetailed(cardView),
+                    if (manaCost != null && !manaCost.isEmpty()) {
+                        display.append(", ").append(formatManaCost(manaCost));
+                    }
+                    items.add(new ZoneItem(display.toString(), formatCardDetailed(cardView),
                             cardView, ZoneItem.ActionType.SEND_CARD_UUID));
                 }
             }
@@ -480,7 +488,18 @@ public class AccessibleGameWindow extends JFrame {
                 for (Object cardView : ((Map<?, ?>) stack).values()) {
                     String name = callString(cardView, "getName");
                     if (name != null) {
-                        items.add(new ZoneItem(name, formatCardDetailed(cardView),
+                        StringBuilder display = new StringBuilder(name);
+                        Object targets = callMethod(cardView, "getTargets");
+                        if (targets instanceof List && !((List<?>) targets).isEmpty()) {
+                            display.append(" targeting ");
+                            boolean first = true;
+                            for (Object target : (List<?>) targets) {
+                                if (!first) display.append(", ");
+                                first = false;
+                                display.append(target.toString());
+                            }
+                        }
+                        items.add(new ZoneItem(display.toString(), formatCardDetailed(cardView),
                                 cardView, ZoneItem.ActionType.SEND_CARD_UUID));
                     }
                 }
