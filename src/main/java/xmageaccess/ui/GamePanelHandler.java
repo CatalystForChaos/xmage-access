@@ -82,6 +82,8 @@ public class GamePanelHandler {
     private boolean lastAbilityPickerVisible = false;
     private int lastCombatGroupCount = 0;
     private Object lastGameId = null; // UUID of the current game — changes between games in a match
+    private volatile boolean inCombatDamageStep = false;
+    private String lastCombatSummary = "";
 
     // Hand navigation cursor
     private int handCursorIndex = 0;
@@ -153,12 +155,15 @@ public class GamePanelHandler {
         lastAbilityPickerVisible = false;
         lastCombatGroupCount = 0;
         lastGameId = null;
+        inCombatDamageStep = false;
+        lastCombatSummary = "";
         handCursorIndex = 0;
         handCards.clear();
         bfCursorIndex = 0;
         bfPlayerIndex = 0;
         bfPermanents.clear();
         bfPlayerNames.clear();
+        rediscoverComponents();
     }
 
     private void discoverComponents() {
@@ -184,6 +189,24 @@ public class GamePanelHandler {
                 + ", abilityPicker: " + (abilityPicker != null)
                 + ", gameLog: " + (gameChatPanel != null)
                 + ", userChat: " + (userChatPanel != null));
+    }
+
+    private void rediscoverComponents() {
+        if (chatHelper != null) {
+            chatHelper.detach();
+            chatHelper = null;
+        }
+        helperPanel = findFieldDeep(gamePanel, "helper");
+        feedbackPanel = findFieldTyped(gamePanel, "feedbackPanel", Component.class);
+        playerPanels = findFieldTyped(gamePanel, "players", Map.class);
+        pickTargetDialogs = findFieldTyped(gamePanel, "pickTarget", List.class);
+        abilityPicker = findFieldDeep(gamePanel, "abilityPicker");
+        gameChatPanel = findFieldDeep(gamePanel, "gameChatPanel");
+        userChatPanel = findFieldDeep(gamePanel, "userChatPanel");
+        if (userChatPanel != null) {
+            chatHelper = new ChatAccessHelper(userChatPanel);
+            chatHelper.attach();
+        }
     }
 
     private void addKeyboardShortcuts() {
@@ -295,11 +318,24 @@ public class GamePanelHandler {
         String text = getFeedbackText();
         if (text != null && !text.equals(lastFeedbackText)) {
             lastFeedbackText = text;
+
+            String lowerText = text.toLowerCase();
+            inCombatDamageStep = lowerText.contains("assign damage")
+                    || lowerText.contains("damage assignment")
+                    || lowerText.contains("assign combat damage")
+                    || lowerText.contains("distribute damage");
+
             if (!text.isEmpty() && !text.equals("<Empty>")) {
                 StringBuilder sb = new StringBuilder(cleanHtml(text));
                 String buttons = getVisibleButtons();
                 if (!buttons.isEmpty()) {
                     sb.append(". ").append(buttons);
+                }
+                if (inCombatDamageStep) {
+                    String combat = getCombatSummary();
+                    if (!combat.isEmpty()) {
+                        sb.append(". ").append(combat);
+                    }
                 }
                 speak(sb.toString());
             }
@@ -336,7 +372,10 @@ public class GamePanelHandler {
                 lastAbilityPickerVisible = false;
                 lastCombatGroupCount = 0;
                 lastFeedbackText = "";
+                inCombatDamageStep = false;
+                lastCombatSummary = "";
                 lastGameId = currentGameId;
+                rediscoverComponents();
                 if (isSwitch) {
                     speak("New game.");
                 }
@@ -847,7 +886,15 @@ public class GamePanelHandler {
                 if (blockers instanceof Map) {
                     for (Object card : ((Map<?, ?>) blockers).values()) {
                         String name = callString(card, "getName");
-                        if (name != null) sb.append(name).append(", ");
+                        String bPower = callString(card, "getPower");
+                        String bToughness = callString(card, "getToughness");
+                        if (name != null) {
+                            sb.append(name);
+                            if (bPower != null && bToughness != null) {
+                                sb.append(" ").append(bPower).append("/").append(bToughness);
+                            }
+                            sb.append(", ");
+                        }
                     }
                 }
             } else {
@@ -855,6 +902,65 @@ public class GamePanelHandler {
             }
         }
         speak(sb.toString());
+    }
+
+    private String getCombatSummary() {
+        Object gameView = getGameView();
+        if (gameView == null) return "";
+        Object combatList = callMethod(gameView, "getCombat");
+        if (!(combatList instanceof List) || ((List<?>) combatList).isEmpty()) return "";
+
+        StringBuilder sb = new StringBuilder();
+        for (Object group : (List<?>) combatList) {
+            Object attackers = callMethod(group, "getAttackers");
+            if (attackers instanceof Map) {
+                for (Object card : ((Map<?, ?>) attackers).values()) {
+                    String name = callString(card, "getName");
+                    String power = callString(card, "getPower");
+                    String toughness = callString(card, "getToughness");
+                    if (name != null) {
+                        sb.append(name);
+                        if (power != null && toughness != null) {
+                            sb.append(" ").append(power).append("/").append(toughness);
+                        }
+                    }
+                }
+            }
+
+            boolean blocked = callBool(group, "isBlocked");
+            if (blocked) {
+                sb.append(" blocked by ");
+                Object blockers = callMethod(group, "getBlockers");
+                if (blockers instanceof Map) {
+                    int i = 0;
+                    for (Object card : ((Map<?, ?>) blockers).values()) {
+                        String name = callString(card, "getName");
+                        String bToughness = callString(card, "getToughness");
+                        if (name != null) {
+                            if (i > 0) sb.append(", ");
+                            sb.append(name);
+                            if (bToughness != null) {
+                                sb.append(" (toughness ").append(bToughness).append(")");
+                            }
+                            i++;
+                        }
+                    }
+                }
+            } else {
+                sb.append(" unblocked");
+            }
+            sb.append(". ");
+        }
+        lastCombatSummary = sb.toString();
+        return lastCombatSummary;
+    }
+
+    public boolean isInCombatDamageStep() {
+        return inCombatDamageStep;
+    }
+
+    public String getLastCombatSummary() {
+        return lastCombatSummary;
     }
 
     private void readManaPool() {

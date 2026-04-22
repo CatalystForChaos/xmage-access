@@ -55,6 +55,7 @@ public class AccessibleGameWindow extends JFrame {
     private Object gameChatPanel;
     private List<?> pickTargetDialogs;
     private Object abilityPicker;
+    private Object lastGameId = null;
 
     private Timer pollTimer;
 
@@ -214,7 +215,23 @@ public class AccessibleGameWindow extends JFrame {
 
     // ========== REFRESH ZONES ==========
 
+    private void clearAllZones() {
+        List<ZoneItem> empty = new ArrayList<ZoneItem>();
+        for (ZoneListPanel zone : allZones) {
+            zone.updateItems(empty);
+        }
+    }
+
     private void refreshAllZones() {
+        Object currentGameId = findFieldDeep(gamePanel, "gameId");
+        if (currentGameId != null && !currentGameId.equals(lastGameId)) {
+            if (lastGameId != null) {
+                clearAllZones();
+            }
+            lastGameId = currentGameId;
+            refreshReferences();
+        }
+
         refreshActionsZone();
         refreshHandZone();
         refreshBattlefieldZones();
@@ -242,6 +259,9 @@ public class AccessibleGameWindow extends JFrame {
         addButtonItem(items, "btnRight", "linkRight", "Cancel");
         addButtonItem(items, "btnSpecial", "linkSpecial", "Special");
         addButtonItem(items, "btnUndo", "linkUndo", "Undo");
+
+        // Combat info (when in combat phase)
+        addCombatItems(items);
 
         // Ability choices (when ability picker is visible)
         List<Object[]> abilities = getAbilityChoices();
@@ -290,6 +310,70 @@ public class AccessibleGameWindow extends JFrame {
             }
         } catch (Exception e) {
             // Ignore
+        }
+    }
+
+    private void addCombatItems(List<ZoneItem> items) {
+        Object gameView = getGameView();
+        if (gameView == null) return;
+        Object combatList = callMethod(gameView, "getCombat");
+        if (!(combatList instanceof List) || ((List<?>) combatList).isEmpty()) return;
+
+        for (Object group : (List<?>) combatList) {
+            StringBuilder display = new StringBuilder("Combat: ");
+            StringBuilder detail = new StringBuilder();
+
+            Object attackers = callMethod(group, "getAttackers");
+            if (attackers instanceof Map) {
+                for (Object card : ((Map<?, ?>) attackers).values()) {
+                    String name = callString(card, "getName");
+                    String power = callString(card, "getPower");
+                    String toughness = callString(card, "getToughness");
+                    if (name != null) {
+                        display.append(name);
+                        if (power != null && toughness != null) {
+                            display.append(" ").append(power).append("/").append(toughness);
+                        }
+                        detail.append("Attacker: ").append(name);
+                        if (power != null && toughness != null) {
+                            detail.append(" ").append(power).append("/").append(toughness);
+                        }
+                        detail.append(". ");
+                    }
+                }
+            }
+
+            boolean blocked = callBool(group, "isBlocked");
+            if (blocked) {
+                display.append(" blocked by ");
+                Object blockers = callMethod(group, "getBlockers");
+                if (blockers instanceof Map) {
+                    int i = 0;
+                    for (Object card : ((Map<?, ?>) blockers).values()) {
+                        String name = callString(card, "getName");
+                        String bPower = callString(card, "getPower");
+                        String bToughness = callString(card, "getToughness");
+                        if (name != null) {
+                            if (i > 0) display.append(", ");
+                            display.append(name);
+                            if (bPower != null && bToughness != null) {
+                                display.append(" ").append(bPower).append("/").append(bToughness);
+                            }
+                            detail.append("Blocker: ").append(name);
+                            if (bPower != null && bToughness != null) {
+                                detail.append(" ").append(bPower).append("/").append(bToughness);
+                            }
+                            detail.append(". ");
+                            i++;
+                        }
+                    }
+                }
+            } else {
+                display.append(" unblocked");
+            }
+
+            items.add(new ZoneItem(display.toString(), detail.toString(),
+                    null, ZoneItem.ActionType.NONE));
         }
     }
 

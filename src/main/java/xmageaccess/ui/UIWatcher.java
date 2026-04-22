@@ -26,6 +26,7 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
     private final Map<Component, AccessibleGameWindow> gameWindows = new ConcurrentHashMap<>();
     private final Map<Component, AccessibleDeckEditorWindow> deckEditorWindows = new ConcurrentHashMap<>();
     private final Map<Component, SideboardingHandler> sideboardingWindows = new ConcurrentHashMap<>();
+    private final java.util.Set<String> loggedUnknownDialogs = java.util.Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
     private ConnectDialogHandler connectHandler;
     private LobbyHandler lobbyHandler;
     private AccessibleLobbyWindow lobbyWindow;
@@ -304,6 +305,16 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
         if (className.equals("mage.client.dialog.PreferencesDialog")) {
             if (!attachedHandlers.containsKey(comp) && comp.isVisible()) {
                 attachPreferencesDialog(comp);
+            }
+        }
+
+        // Log unrecognized dialog classes once (helps identify damage assignment dialog)
+        if (!attachedHandlers.containsKey(comp) && comp.isVisible()) {
+            if ((comp instanceof JDialog || comp instanceof JInternalFrame)
+                    && className.startsWith("mage.client.")) {
+                if (loggedUnknownDialogs.add(className)) {
+                    System.out.println("[XMage Access] Unhandled dialog class: " + className);
+                }
             }
         }
 

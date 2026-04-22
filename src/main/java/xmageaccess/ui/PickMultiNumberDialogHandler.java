@@ -62,21 +62,30 @@ public class PickMultiNumberDialogHandler {
     }
 
     private void announceDialog() {
-        StringBuilder sb = new StringBuilder("Distribute values. ");
-
         // Read header
         String header = readLabelText("header");
+        boolean isDamageAssignment = false;
+        if (header != null && !header.isEmpty()) {
+            String lowerHeader = header.toLowerCase();
+            isDamageAssignment = lowerHeader.contains("assign")
+                    && lowerHeader.contains("damage");
+        }
+
+        StringBuilder sb = new StringBuilder(isDamageAssignment
+                ? "Combat damage distribution. " : "Distribute values. ");
+
         if (header != null && !header.isEmpty()) {
             sb.append(cleanHtml(header)).append(". ");
         }
 
         int itemCount = getItemCount();
-        sb.append(itemCount).append(" items. ");
+        sb.append(itemCount).append(isDamageAssignment ? " blockers. " : " items. ");
 
         // Read counter (total)
         String counter = readLabelText("counterText");
         if (counter != null && !counter.isEmpty()) {
-            sb.append("Total: ").append(counter).append(". ");
+            sb.append(isDamageAssignment ? "Damage to assign: " : "Total: ");
+            sb.append(counter).append(". ");
         }
 
         // Announce first item
@@ -85,7 +94,9 @@ public class PickMultiNumberDialogHandler {
             sb.append("First: ").append(describeItem(0)).append(". ");
         }
 
-        sb.append("Ctrl+Up, Down to navigate items. Ctrl+Left, Right to adjust value. Ctrl+Enter to confirm.");
+        sb.append("Ctrl+Up, Down to navigate");
+        sb.append(isDamageAssignment ? " blockers" : " items");
+        sb.append(". Ctrl+Left, Right to adjust value. Ctrl+Enter to confirm.");
         speak(sb.toString());
     }
 
