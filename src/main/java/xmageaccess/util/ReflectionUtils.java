@@ -2,12 +2,16 @@ package xmageaccess.util;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Shared reflection utilities for accessing XMage classes that are
  * not on the agent's compile-time classpath.
  */
 public final class ReflectionUtils {
+
+    private static final ConcurrentHashMap<String, Field> fieldCache = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, Method> methodCache = new ConcurrentHashMap<>();
 
     private ReflectionUtils() {}
 
@@ -18,11 +22,17 @@ public final class ReflectionUtils {
     public static Object findFieldDeep(Object target, String name) {
         if (target == null) return null;
         try {
+            String key = target.getClass().getName() + "#" + name;
+            Field cached = fieldCache.get(key);
+            if (cached != null) {
+                return cached.get(target);
+            }
             Class<?> clazz = target.getClass();
             while (clazz != null) {
                 try {
                     Field field = clazz.getDeclaredField(name);
                     field.setAccessible(true);
+                    fieldCache.put(key, field);
                     return field.get(target);
                 } catch (NoSuchFieldException e) {
                     clazz = clazz.getSuperclass();
@@ -71,8 +81,14 @@ public final class ReflectionUtils {
     public static Object callMethod(Object obj, String methodName) {
         if (obj == null) return null;
         try {
-            Method method = obj.getClass().getMethod(methodName);
-            return method.invoke(obj);
+            String key = obj.getClass().getName() + "#" + methodName;
+            Method cached = methodCache.get(key);
+            if (cached == null) {
+                cached = obj.getClass().getMethod(methodName);
+                cached.setAccessible(true);
+                methodCache.put(key, cached);
+            }
+            return cached.invoke(obj);
         } catch (Exception e) {
             return null;
         }
@@ -113,8 +129,14 @@ public final class ReflectionUtils {
     public static Object callMethodWithArg(Object obj, String methodName, Class<?> argType, Object arg) {
         if (obj == null) return null;
         try {
-            Method method = obj.getClass().getMethod(methodName, argType);
-            return method.invoke(obj, arg);
+            String key = obj.getClass().getName() + "#" + methodName + "(" + argType.getName() + ")";
+            Method cached = methodCache.get(key);
+            if (cached == null) {
+                cached = obj.getClass().getMethod(methodName, argType);
+                cached.setAccessible(true);
+                methodCache.put(key, cached);
+            }
+            return cached.invoke(obj, arg);
         } catch (Exception e) {
             return null;
         }
@@ -125,11 +147,18 @@ public final class ReflectionUtils {
      * Returns the Field object (not its value), or null.
      */
     public static Field findField(Class<?> clazz, String name) {
-        while (clazz != null) {
+        String key = clazz.getName() + "#" + name;
+        Field cached = fieldCache.get(key);
+        if (cached != null) return cached;
+        Class<?> current = clazz;
+        while (current != null) {
             try {
-                return clazz.getDeclaredField(name);
+                Field field = current.getDeclaredField(name);
+                field.setAccessible(true);
+                fieldCache.put(key, field);
+                return field;
             } catch (NoSuchFieldException e) {
-                clazz = clazz.getSuperclass();
+                current = current.getSuperclass();
             }
         }
         return null;

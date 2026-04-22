@@ -94,6 +94,7 @@ public class AccessibleDeckEditorWindow extends JFrame {
     private Object deckLegalityDisplay;
 
     private Timer pollTimer;
+    private Timer transientTimer;
 
     private static final int MAX_SEARCH_RESULTS = 100;
 
@@ -538,6 +539,13 @@ public class AccessibleDeckEditorWindow extends JFrame {
         }
     }
 
+    private void stopTransientTimer() {
+        if (transientTimer != null) {
+            transientTimer.stop();
+            transientTimer = null;
+        }
+    }
+
     @Override
     public void setVisible(boolean visible) {
         super.setVisible(visible);
@@ -551,6 +559,7 @@ public class AccessibleDeckEditorWindow extends JFrame {
     @Override
     public void dispose() {
         stopPolling();
+        stopTransientTimer();
         _activeWindows.remove(this);
         super.dispose();
     }
@@ -574,7 +583,8 @@ public class AccessibleDeckEditorWindow extends JFrame {
         speak("Searching for " + query + ".");
 
         // Refresh search results after a short delay, then move focus to results
-        Timer refreshTimer = new Timer(500, e -> {
+        stopTransientTimer();
+        transientTimer = new Timer(500, e -> {
             refreshReferences();
             _lastSearchResultCount = -1; // Force refresh after search
             refreshSearchResultsZone();
@@ -585,8 +595,8 @@ public class AccessibleDeckEditorWindow extends JFrame {
                 searchResultsZone.getList().requestFocusInWindow();
             }
         });
-        refreshTimer.setRepeats(false);
-        refreshTimer.start();
+        transientTimer.setRepeats(false);
+        transientTimer.start();
     }
 
     // ========== REFRESH ==========
@@ -961,7 +971,8 @@ public class AccessibleDeckEditorWindow extends JFrame {
     }
 
     private void scheduleRefresh() {
-        Timer refreshTimer = new Timer(500, e -> {
+        stopTransientTimer();
+        transientTimer = new Timer(500, e -> {
             refreshReferences();
             // Force refresh after card add/remove
             _lastSearchResultCount = -1;
@@ -969,8 +980,8 @@ public class AccessibleDeckEditorWindow extends JFrame {
             _lastSideboardCount = -1;
             refreshAllZones();
         });
-        refreshTimer.setRepeats(false);
-        refreshTimer.start();
+        transientTimer.setRepeats(false);
+        transientTimer.start();
     }
 
     // ========== DECK OPERATIONS ==========
@@ -1218,9 +1229,10 @@ public class AccessibleDeckEditorWindow extends JFrame {
         }
 
         // Read results after a short delay for validation to complete
-        Timer readTimer = new Timer(500, e -> readLegalityResults());
-        readTimer.setRepeats(false);
-        readTimer.start();
+        stopTransientTimer();
+        transientTimer = new Timer(500, e -> readLegalityResults());
+        transientTimer.setRepeats(false);
+        transientTimer.start();
     }
 
     private void readLegalityResults() {

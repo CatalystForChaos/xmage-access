@@ -80,13 +80,23 @@ public class ZoneListPanel extends JPanel {
     public void updateItems(List<ZoneItem> items) {
         isRefreshing = true;
         try {
-            int prevIndex = list.getSelectedIndex();
+            ZoneItem selected = list.getSelectedValue();
+            String selectedName = selected != null ? selected.getDisplayName() : null;
             model.clear();
             for (ZoneItem item : items) {
                 model.addElement(item);
             }
-            if (prevIndex >= 0 && prevIndex < model.getSize()) {
-                list.setSelectedIndex(prevIndex);
+            int newIndex = -1;
+            if (selectedName != null) {
+                for (int i = 0; i < model.getSize(); i++) {
+                    if (selectedName.equals(model.getElementAt(i).getDisplayName())) {
+                        newIndex = i;
+                        break;
+                    }
+                }
+            }
+            if (newIndex >= 0) {
+                list.setSelectedIndex(newIndex);
             } else if (model.getSize() > 0) {
                 list.setSelectedIndex(0);
             }

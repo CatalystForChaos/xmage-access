@@ -157,7 +157,7 @@ public class AccessibleGameWindow extends JFrame {
     }
 
     private void startPolling() {
-        pollTimer = new Timer(5000, e -> {
+        pollTimer = new Timer(15000, e -> {
             try {
                 if (!gamePanel.isVisible()) {
                     stopPolling();

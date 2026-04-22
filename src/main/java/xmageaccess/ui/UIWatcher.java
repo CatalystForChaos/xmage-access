@@ -13,6 +13,7 @@ import java.awt.event.WindowEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -30,6 +31,8 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
     private ConnectDialogHandler connectHandler;
     private LobbyHandler lobbyHandler;
     private AccessibleLobbyWindow lobbyWindow;
+    private Timer scanTimer;
+    private volatile String lastContext = "";
     private boolean connectDialogWasVisible = false;
     private boolean lobbyAnnounced = false;
 
@@ -48,7 +51,7 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
 
         // Schedule a periodic scan for new components, since some XMage
         // UI is created without standard window events
-        Timer scanTimer = new Timer(1000, e -> scanForKnownUI());
+        scanTimer = new Timer(1000, e -> scanForKnownUI());
         scanTimer.setRepeats(true);
         scanTimer.start();
     }
@@ -136,6 +139,9 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
 
             // Check if the connect dialog has closed and lobby should be announced
             checkConnectDialogClosed();
+
+            // Clean up handlers for components that have been disposed
+            cleanupDisposedHandlers();
         } catch (Exception e) {
             // Avoid crashing the AWT event thread
             System.err.println("[XMage Access] UI scan error: " + e.getMessage());
@@ -208,6 +214,9 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
 
         // Detect GamePanel (active gameplay)
         if (className.equals("mage.client.game.GamePanel")) {
+            if (comp.isVisible()) {
+                announceContextChange("Entering game.");
+            }
             if (!attachedHandlers.containsKey(comp) && comp.isVisible()) {
                 attachGamePanel(comp);
             } else if (comp.isVisible() && attachedHandlers.containsKey(comp)) {
@@ -347,6 +356,7 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
 
         if (!connectStillVisible && lobbyHandler != null) {
             lobbyAnnounced = true;
+            announceContextChange("Lobby.");
             System.out.println("[XMage Access] Connect dialog closed, announcing lobby.");
             lobbyHandler.announceWelcome();
         }
@@ -394,6 +404,7 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
                 || "LIMITED_SIDEBOARD_BUILDING".equals(modeName);
 
         if (isSideboarding) {
+            announceContextChange("Sideboarding.");
             System.out.println("[XMage Access] Sideboarding panel detected (mode: " + modeName + ").");
             SideboardingHandler sbHandler = new SideboardingHandler(panel);
             sbHandler.setVisible(true);
@@ -402,6 +413,7 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
             attachedHandlers.put(panel, sbHandler);
             System.out.println("[XMage Access] Sideboarding window opened.");
         } else {
+            announceContextChange("Deck editor.");
             System.out.println("[XMage Access] Deck editor panel detected (mode: " + modeName + ").");
             DeckEditorHandler handler = new DeckEditorHandler(panel);
             handler.attach();
@@ -558,6 +570,46 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
         PreferencesDialogHandler handler = new PreferencesDialogHandler(dialog);
         handler.attach();
         attachedHandlers.put(dialog, handler);
+    }
+
+    private void announceContextChange(String newContext) {
+        if (!newContext.equals(lastContext)) {
+            String oldContext = lastContext;
+            lastContext = newContext;
+            if (!oldContext.isEmpty()) {
+                speak(newContext);
+            }
+        }
+    }
+
+    private void speak(String text) {
+        SpeechOutput speech = AccessibilityManager.getInstance().getSpeech();
+        if (speech != null) speech.speak(text);
+    }
+
+    public void shutdown() {
+        if (scanTimer != null) {
+            scanTimer.stop();
+        }
+        Toolkit.getDefaultToolkit().removeAWTEventListener(this);
+        KeyboardFocusManager kfm = KeyboardFocusManager.getCurrentKeyboardFocusManager();
+        kfm.removePropertyChangeListener("activeWindow", this);
+        kfm.removePropertyChangeListener("focusOwner", this);
+        detachAll();
+    }
+
+    private void detachAll() {
+        for (Component comp : new ArrayList<Component>(attachedHandlers.keySet())) {
+            detach(comp);
+        }
+    }
+
+    private void cleanupDisposedHandlers() {
+        for (Component comp : new ArrayList<Component>(attachedHandlers.keySet())) {
+            if (!comp.isDisplayable()) {
+                detach(comp);
+            }
+        }
     }
 
     /**

@@ -105,6 +105,14 @@ public class PickMultiNumberDialogHandler {
                     if (e.getID() != KeyEvent.KEY_PRESSED) return false;
                     if (!isDialogVisible()) return false;
 
+                    if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+                        if (btnCancel != null && btnCancel.isEnabled()) {
+                            speak("Cancelled.");
+                            btnCancel.doClick();
+                        }
+                        return true;
+                    }
+
                     if (e.isControlDown() && !e.isShiftDown()) {
                         switch (e.getKeyCode()) {
                             case KeyEvent.VK_UP:

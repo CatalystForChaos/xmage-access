@@ -92,6 +92,14 @@ public class PickNumberDialogHandler {
                     if (e.getID() != KeyEvent.KEY_PRESSED) return false;
                     if (!isDialogVisible()) return false;
 
+                    if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+                        if (buttonCancel != null && buttonCancel.isEnabled()) {
+                            speak("Cancelled.");
+                            buttonCancel.doClick();
+                        }
+                        return true;
+                    }
+
                     if (e.isControlDown() && !e.isShiftDown()) {
                         switch (e.getKeyCode()) {
                             case KeyEvent.VK_UP:

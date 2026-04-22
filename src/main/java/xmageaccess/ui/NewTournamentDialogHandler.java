@@ -100,6 +100,14 @@ public class NewTournamentDialogHandler {
                     if (e.getID() != KeyEvent.KEY_PRESSED) return false;
                     if (!isDialogActive()) return false;
 
+                    if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+                        if (btnCancel != null && btnCancel.isEnabled()) {
+                            speak("Cancelled.");
+                            btnCancel.doClick();
+                        }
+                        return true;
+                    }
+
                     if (e.isControlDown() && !e.isAltDown()) {
                         if (!e.isShiftDown()) {
                             switch (e.getKeyCode()) {

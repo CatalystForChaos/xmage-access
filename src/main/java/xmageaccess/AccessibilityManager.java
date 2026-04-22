@@ -43,6 +43,9 @@ public class AccessibilityManager {
 
         // Clean up native resources on shutdown
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            if (uiWatcher != null) {
+                uiWatcher.shutdown();
+            }
             if (speech != null) {
                 speech.shutdown();
             }

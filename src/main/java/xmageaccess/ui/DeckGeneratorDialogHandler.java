@@ -281,6 +281,15 @@ public class DeckGeneratorDialogHandler {
                     if (e.getID() != java.awt.event.KeyEvent.KEY_PRESSED) return false;
                     if (!dialog.isVisible()) return false;
 
+                    if (e.getKeyCode() == java.awt.event.KeyEvent.VK_ESCAPE) {
+                        Component btn = findField("btnCancel", Component.class);
+                        if (btn instanceof JButton && btn.isEnabled()) {
+                            speak("Cancelled.");
+                            ((JButton) btn).doClick();
+                        }
+                        return true;
+                    }
+
                     // Ctrl+Enter = Generate
                     if (e.isControlDown() && e.getKeyCode() == java.awt.event.KeyEvent.VK_ENTER) {
                         Component btn = findField("btnGenerate", Component.class);

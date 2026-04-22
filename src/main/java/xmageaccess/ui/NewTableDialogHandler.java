@@ -304,6 +304,14 @@ public class NewTableDialogHandler {
                     // Don't intercept keys when sideboarding window is open
                     if (SideboardingHandler.isAnyWindowVisible()) return false;
 
+                    if (e.getKeyCode() == java.awt.event.KeyEvent.VK_ESCAPE) {
+                        if (btnCancel != null && btnCancel.isEnabled()) {
+                            speak("Cancelled.");
+                            btnCancel.doClick();
+                        }
+                        return true;
+                    }
+
                     // Ctrl+Enter = Create game
                     if (e.isControlDown() && !e.isShiftDown()
                             && e.getKeyCode() == java.awt.event.KeyEvent.VK_ENTER) {

@@ -14,6 +14,12 @@ public class MacOSSpeech implements SpeechEngine {
     public synchronized void speak(String text, boolean interrupt) {
         if (interrupt) {
             silence();
+        } else if (currentProcess != null && currentProcess.isAlive()) {
+            try {
+                currentProcess.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (Exception e) {
+                currentProcess.destroyForcibly();
+            }
         }
 
         try {
