@@ -112,6 +112,12 @@ public class DraftPanelHandler {
         keyDispatcher = e -> {
                     if (e.getID() != KeyEvent.KEY_PRESSED) return false;
                     if (!isPanelVisible()) return false;
+
+                    if (!e.isControlDown() && e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+                        speak("Draft in progress. Cannot leave draft.");
+                        return true;
+                    }
+
                     if (!e.isControlDown()) return false;
 
                     if (!e.isShiftDown()) {
@@ -436,6 +442,12 @@ public class DraftPanelHandler {
 
         if (manaCost != null && !manaCost.isEmpty()) {
             sb.append("Mana cost: ").append(formatManaCost(manaCost)).append(". ");
+        }
+
+        Object color = callMethod(cardView, "getColor");
+        String colorText = formatColor(color);
+        if (colorText != null) {
+            sb.append("Color: ").append(colorText).append(". ");
         }
 
         if (types != null && !types.isEmpty()) {

@@ -99,6 +99,14 @@ public class PickChoiceDialogHandler {
                     if (e.getID() != KeyEvent.KEY_PRESSED) return false;
                     if (!isDialogVisible()) return false;
 
+                    if (e.getKeyCode() == KeyEvent.VK_ESCAPE && !e.isControlDown()) {
+                        if (btCancel != null && btCancel.isEnabled() && btCancel.isVisible()) {
+                            btCancel.doClick();
+                            return true;
+                        }
+                        return false;
+                    }
+
                     if (e.isControlDown() && !e.isShiftDown()) {
                         switch (e.getKeyCode()) {
                             case KeyEvent.VK_UP:

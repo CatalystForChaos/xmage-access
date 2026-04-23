@@ -1020,6 +1020,11 @@ public class AccessibleGameWindow extends JFrame {
         if (manaCost != null && !manaCost.isEmpty()) {
             sb.append("Mana cost: ").append(formatManaCost(manaCost)).append(". ");
         }
+        Object color = callMethod(cardView, "getColor");
+        String colorText = formatColor(color);
+        if (colorText != null) {
+            sb.append("Color: ").append(colorText).append(". ");
+        }
         if (types != null && !types.isEmpty()) {
             sb.append(types).append(". ");
         }
@@ -1048,6 +1053,11 @@ public class AccessibleGameWindow extends JFrame {
         boolean isTapped = callBool(perm, "isTapped");
 
         sb.append(name != null ? name : "Unknown").append(". ");
+        Object color = callMethod(perm, "getColor");
+        String colorText = formatColor(color);
+        if (colorText != null) {
+            sb.append("Color: ").append(colorText).append(". ");
+        }
         if (types != null && !types.isEmpty()) sb.append(types).append(". ");
 
         if (isCreature) {

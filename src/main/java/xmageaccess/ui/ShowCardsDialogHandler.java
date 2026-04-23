@@ -83,6 +83,12 @@ public class ShowCardsDialogHandler {
         keyDispatcher = e -> {
                     if (e.getID() != KeyEvent.KEY_PRESSED) return false;
                     if (!isDialogVisible()) return false;
+
+                    if (!e.isControlDown() && e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+                        closeDialog();
+                        return true;
+                    }
+
                     if (!e.isControlDown()) return false;
                     if (e.isShiftDown()) return false;
 
@@ -258,6 +264,15 @@ public class ShowCardsDialogHandler {
             if (manaCost != null && !manaCost.isEmpty()) {
                 detailed.append("Cost: ").append(manaCost).append(". ");
             }
+            String colorText = null;
+            try {
+                java.lang.reflect.Method getColor = cardView.getClass().getMethod("getColor");
+                Object colorObj = getColor.invoke(cardView);
+                colorText = xmageaccess.util.TextUtils.formatColor(colorObj);
+            } catch (Exception ignored) {}
+            if (colorText != null) {
+                detailed.append("Color: ").append(colorText).append(". ");
+            }
             if (types != null && !types.isEmpty()) {
                 detailed.append(types).append(". ");
             }
@@ -313,16 +328,18 @@ public class ShowCardsDialogHandler {
     }
 
     private UUID getGameId() {
-        // Try to get gameId from the dialog
         try {
             Object val = getFieldValue(dialog.getClass(), dialog, "gameId");
             if (val instanceof UUID) return (UUID) val;
         } catch (Exception ignored) {}
 
-        // Fallback: try to find it from GamePanel
         try {
-            // Walk up to find GamePanel parent
-            // Or just search active games via SessionHandler
+            Component parent = dialog.getParent();
+            while (parent != null) {
+                Object gid = getFieldValue(parent.getClass(), parent, "gameId");
+                if (gid instanceof UUID) return (UUID) gid;
+                parent = parent.getParent();
+            }
         } catch (Exception ignored) {}
 
         return null;
@@ -391,6 +408,19 @@ public class ShowCardsDialogHandler {
             if (result instanceof String) return Integer.parseInt((String) result);
         } catch (Exception ignored) {}
         return 0;
+    }
+
+    private void closeDialog() {
+        if (isTargeting()) return;
+        try {
+            Method closeMethod = dialog.getClass().getMethod("removeDialog");
+            closeMethod.invoke(dialog);
+        } catch (Exception e) {
+            try {
+                Method setVisible = dialog.getClass().getMethod("setVisible", boolean.class);
+                setVisible.invoke(dialog, false);
+            } catch (Exception ignored) {}
+        }
     }
 
     private void speak(String text) {

@@ -252,6 +252,10 @@ public class SideboardingHandler extends JFrame {
     @Override
     public void dispose() {
         _activeWindows.remove(this);
+        stopPolling();
+        if (refreshTimer != null) {
+            refreshTimer.stop();
+        }
         super.dispose();
     }
 
@@ -369,6 +373,13 @@ public class SideboardingHandler extends JFrame {
             StringBuilder display = new StringBuilder();
             if (count > 1) display.append(count).append("x ");
             display.append(name);
+            if (callBool(firstCard, "isCreature")) {
+                String power = callString(firstCard, "getPower");
+                String toughness = callString(firstCard, "getToughness");
+                if (power != null && toughness != null) {
+                    display.append(" ").append(power).append("/").append(toughness);
+                }
+            }
             if (manaCost != null && !manaCost.isEmpty()) {
                 display.append(", ").append(formatManaCost(manaCost));
             }
@@ -664,6 +675,11 @@ public class SideboardingHandler extends JFrame {
         sb.append(name != null ? name : "Unknown").append(". ");
         if (manaCost != null && !manaCost.isEmpty()) {
             sb.append("Mana cost: ").append(formatManaCost(manaCost)).append(". ");
+        }
+        Object color = callMethod(cardView, "getColor");
+        String colorText = formatColor(color);
+        if (colorText != null) {
+            sb.append("Color: ").append(colorText).append(". ");
         }
         if (types != null && !types.isEmpty()) {
             sb.append(types).append(". ");
