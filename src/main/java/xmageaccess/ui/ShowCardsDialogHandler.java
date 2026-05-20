@@ -284,8 +284,7 @@ public class ShowCardsDialogHandler {
             if (rules != null && !rules.isEmpty()) {
                 detailed.append("Rules: ");
                 for (String rule : rules) {
-                    // Strip HTML tags
-                    String clean = rule.replaceAll("<[^>]*>", "").trim();
+                    String clean = xmageaccess.util.TextUtils.cleanHtml(rule);
                     if (!clean.isEmpty()) {
                         detailed.append(clean).append(". ");
                     }

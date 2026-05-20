@@ -150,10 +150,19 @@ public class AccessibleLauncher {
             return;
         }
 
+        // Redirect the child's streams so a full output pipe can't block it.
+        // This launcher exits right after starting the child, so we don't keep
+        // a Process handle around.
+        boolean windows = System.getProperty("os.name", "").toLowerCase().contains("win");
+        File devNull = new File(windows ? "NUL" : "/dev/null");
+
         try {
             ProcessBuilder pb = new ProcessBuilder("java",
-                    "-Djava.net.preferIPv4Stack=true", "-jar", launcherJar.getName());
-            pb.directory(new File("."));
+                    "-Djava.net.preferIPv4Stack=true", "-jar", launcherJar.getName())
+                    .directory(new File("."))
+                    .redirectInput(ProcessBuilder.Redirect.from(devNull))
+                    .redirectOutput(ProcessBuilder.Redirect.to(devNull))
+                    .redirectError(ProcessBuilder.Redirect.to(devNull));
             pb.start();
         } catch (IOException e) {
             JOptionPane.showMessageDialog(null,

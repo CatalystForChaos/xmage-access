@@ -49,14 +49,14 @@ public class DraftPanelHandler {
             startMonitoring();
             announceDraftStart();
         } catch (Exception e) {
-            System.err.println("[XMage Access] Error attaching to DraftPanel: " + e.getMessage());
-            e.printStackTrace();
+            xmageaccess.util.Log.warn("Draft", "attach failed", e);
         }
     }
 
     public void detach() {
         if (announceTimer != null) {
             announceTimer.stop();
+            announceTimer = null;
         }
         if (keyDispatcher != null) {
             KeyboardFocusManager.getCurrentKeyboardFocusManager()
@@ -451,8 +451,7 @@ public class DraftPanelHandler {
         if (rules instanceof List && !((List<?>) rules).isEmpty()) {
             sb.append("Rules: ");
             for (Object rule : (List<?>) rules) {
-                String ruleText = rule.toString();
-                ruleText = ruleText.replaceAll("<[^>]*>", "").trim();
+                String ruleText = cleanHtml(rule.toString());
                 if (!ruleText.isEmpty()) sb.append(ruleText).append(". ");
             }
         }

@@ -72,8 +72,7 @@ public class NewTableDialogHandler {
             speak(welcome.toString());
 
         } catch (Exception e) {
-            System.err.println("[XMage Access] Error attaching to new table dialog: " + e.getMessage());
-            e.printStackTrace();
+            xmageaccess.util.Log.warn("NewTable", "attach failed", e);
         }
     }
 

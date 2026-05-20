@@ -1,5 +1,6 @@
 package xmageaccess.speech;
 
+import java.io.File;
 import java.io.IOException;
 
 /**
@@ -7,6 +8,8 @@ import java.io.IOException;
  * communication, falls back to PowerShell SAPI if Tolk is not available.
  */
 public class WindowsSpeech implements SpeechEngine {
+
+    private static final File DEV_NULL = new File("NUL");
 
     private TolkSpeech tolkSpeech;
     private Process currentProcess;
@@ -62,9 +65,11 @@ public class WindowsSpeech implements SpeechEngine {
                     + "$synth = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
                     + "$synth.Speak('" + escaped + "')";
 
-            ProcessBuilder pb = new ProcessBuilder("powershell", "-Command", command);
+            ProcessBuilder pb = new ProcessBuilder("powershell", "-Command", command)
+                    .redirectInput(ProcessBuilder.Redirect.from(DEV_NULL))
+                    .redirectOutput(ProcessBuilder.Redirect.to(DEV_NULL))
+                    .redirectError(ProcessBuilder.Redirect.to(DEV_NULL));
             currentProcess = pb.start();
-            closeStreams(currentProcess);
         } catch (IOException e) {
             System.err.println("[XMage Access] SAPI speech error: " + e.getMessage());
         }
@@ -74,11 +79,5 @@ public class WindowsSpeech implements SpeechEngine {
         if (tolkSpeech != null) {
             tolkSpeech.shutdown();
         }
-    }
-
-    private static void closeStreams(Process p) {
-        try { p.getInputStream().close(); } catch (Exception ignored) {}
-        try { p.getOutputStream().close(); } catch (Exception ignored) {}
-        try { p.getErrorStream().close(); } catch (Exception ignored) {}
     }
 }

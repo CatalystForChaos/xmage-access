@@ -32,8 +32,13 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
     private AccessibleLobbyWindow lobbyWindow;
     private boolean connectDialogWasVisible = false;
     private boolean lobbyAnnounced = false;
+    private Timer scanTimer;
+    private boolean started;
 
     public void start() {
+        if (started) return;
+        started = true;
+
         // Listen for window events (open, close, activate) and key events (global shortcuts)
         Toolkit.getDefaultToolkit().addAWTEventListener(this,
                 AWTEvent.WINDOW_EVENT_MASK | AWTEvent.FOCUS_EVENT_MASK | AWTEvent.KEY_EVENT_MASK);
@@ -46,11 +51,40 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
 
         System.out.println("[XMage Access] UI watcher started.");
 
-        // Schedule a periodic scan for new components, since some XMage
-        // UI is created without standard window events
-        Timer scanTimer = new Timer(1000, e -> scanForKnownUI());
+        // Periodic scan catches UI created without standard AWT window events.
+        scanTimer = new Timer(1000, e -> scanForKnownUI());
         scanTimer.setRepeats(true);
         scanTimer.start();
+    }
+
+    /**
+     * Stop the watcher: cancels the periodic scan, removes AWT and
+     * KeyboardFocusManager listeners, and detaches every attached handler.
+     * Idempotent — safe to call multiple times.
+     */
+    public void stop() {
+        if (!started) return;
+        started = false;
+
+        if (scanTimer != null) {
+            scanTimer.stop();
+            scanTimer = null;
+        }
+
+        Toolkit.getDefaultToolkit().removeAWTEventListener(this);
+        KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                .removePropertyChangeListener("activeWindow", this);
+        KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                .removePropertyChangeListener("focusOwner", this);
+
+        // Detach every attached handler so listeners/timers they own get cleaned up.
+        for (Component comp : new java.util.ArrayList<>(attachedHandlers.keySet())) {
+            try {
+                detach(comp);
+            } catch (Exception e) {
+                System.err.println("[XMage Access] Error detaching handler during stop: " + e.getMessage());
+            }
+        }
     }
 
     @Override

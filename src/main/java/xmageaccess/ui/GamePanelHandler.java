@@ -125,6 +125,7 @@ public class GamePanelHandler {
     public void detach() {
         if (pollTimer != null) {
             pollTimer.stop();
+            pollTimer = null;
         }
         if (keyDispatcher != null) {
             KeyboardFocusManager.getCurrentKeyboardFocusManager()
@@ -133,6 +134,7 @@ public class GamePanelHandler {
         }
         if (chatHelper != null) {
             chatHelper.detach();
+            chatHelper = null;
         }
     }
 

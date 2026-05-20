@@ -61,13 +61,9 @@ public class UserRequestDialogHandler {
         StringBuilder sb = new StringBuilder("System message. ");
 
         if (lblText != null) {
-            String text = lblText.getText();
-            if (text != null) {
-                text = text.replaceAll("<[^>]*>", "").trim();
-                text = text.replaceAll("\\s+", " ");
-                if (!text.isEmpty()) {
-                    sb.append(text).append(". ");
-                }
+            String text = xmageaccess.util.TextUtils.cleanHtml(lblText.getText());
+            if (!text.isEmpty()) {
+                sb.append(text).append(". ");
             }
         }
 

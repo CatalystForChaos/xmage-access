@@ -254,16 +254,7 @@ public class ChatAccessHelper {
         if (txtConversation == null) return "";
         try {
             // Get plain text content, stripping HTML
-            String text = txtConversation.getText();
-            if (text == null) return "";
-            // Strip HTML tags
-            text = text.replaceAll("<[^>]*>", "");
-            text = text.replaceAll("&nbsp;", " ");
-            text = text.replaceAll("&amp;", "&");
-            text = text.replaceAll("&lt;", "<");
-            text = text.replaceAll("&gt;", ">");
-            text = text.replaceAll("\\s+", " ").trim();
-            return text;
+            return xmageaccess.util.TextUtils.cleanHtml(txtConversation.getText());
         } catch (Exception e) {
             return "";
         }

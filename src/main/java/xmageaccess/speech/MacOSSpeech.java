@@ -1,5 +1,6 @@
 package xmageaccess.speech;
 
+import java.io.File;
 import java.io.IOException;
 
 /**
@@ -7,6 +8,8 @@ import java.io.IOException;
  * Also works with VoiceOver when it is running.
  */
 public class MacOSSpeech implements SpeechEngine {
+
+    private static final File DEV_NULL = new File("/dev/null");
 
     private Process currentProcess;
 
@@ -17,10 +20,11 @@ public class MacOSSpeech implements SpeechEngine {
         }
 
         try {
-            // The 'say' command is available on all macOS systems
-            ProcessBuilder pb = new ProcessBuilder("say", text);
+            ProcessBuilder pb = new ProcessBuilder("say", text)
+                    .redirectInput(ProcessBuilder.Redirect.from(DEV_NULL))
+                    .redirectOutput(ProcessBuilder.Redirect.to(DEV_NULL))
+                    .redirectError(ProcessBuilder.Redirect.to(DEV_NULL));
             currentProcess = pb.start();
-            closeStreams(currentProcess);
         } catch (IOException e) {
             System.err.println("[XMage Access] Speech error: " + e.getMessage());
         }
@@ -32,11 +36,5 @@ public class MacOSSpeech implements SpeechEngine {
             currentProcess.destroyForcibly();
         }
         currentProcess = null;
-    }
-
-    private static void closeStreams(Process p) {
-        try { p.getInputStream().close(); } catch (Exception ignored) {}
-        try { p.getOutputStream().close(); } catch (Exception ignored) {}
-        try { p.getErrorStream().close(); } catch (Exception ignored) {}
     }
 }

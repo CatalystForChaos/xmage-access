@@ -236,6 +236,11 @@ public class SideboardingHandler extends JFrame {
     public void stopPolling() {
         if (pollTimer != null) {
             pollTimer.stop();
+            pollTimer = null;
+        }
+        if (refreshTimer != null) {
+            refreshTimer.stop();
+            refreshTimer = null;
         }
     }
 
