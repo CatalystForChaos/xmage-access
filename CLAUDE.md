@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides context for AI assistants working on the XMage Access codebase.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
@@ -12,150 +12,82 @@ This file provides context for AI assistants working on the XMage Access codebas
 
 - **Requirements:** Java 8 (JDK 1.8), Maven
 - **Build:** `mvn package`
-- **Output:** `target/xmage-access-0.1.0.jar`
-- **No test suite exists** — there are no tests, no test framework, and no `src/test` directory.
-- **No CI/CD pipeline** — no GitHub Actions or other CI configuration.
-- **No linter or formatter** is configured.
+- **Output:** `target/xmage-access-0.1.0.jar` (all dependencies shaded in)
+- **No test suite exists** — there are no tests, no test framework, and no `src/test` directory. There is also no CI, linter, or formatter.
 
-To test manually, copy the built JAR to `xmage/mage-client/lib/` in an XMage installation and launch with `-javaagent:./lib/xmage-access-0.1.0.jar`.
+To test manually, copy the built JAR to `xmage/mage-client/lib/` in an XMage installation and launch with `-javaagent:./lib/xmage-access-0.1.0.jar` (or use the launcher scripts in `dist/`).
 
-## Repository Structure
+### Versioning / releases
 
-```
-xmage-access/
-├── pom.xml                         # Maven build config (Java 8, shade plugin)
-├── README.md                       # User-facing documentation
-├── DEVLOG-deck-editor.md           # Dev notes for deck editor feature
-├── dist/                           # Prebuilt JAR, launcher scripts, Tolk DLLs
-│   ├── xmage-access-0.1.0.jar
-│   ├── run-accessible-launcher.*   # Launcher scripts (Win/Mac)
-│   ├── startClient-accessible.*    # Direct-start scripts (Win/Mac)
-│   ├── README-accessible.txt       # Full user guide
-│   └── tolk/                       # Native DLLs for NVDA/JAWS (x86/x64)
-└── src/main/java/xmageaccess/
-    ├── XMageAccessAgent.java       # Java agent entry point (premain)
-    ├── AccessibilityManager.java   # Singleton coordinator
-    ├── handlers/
-    │   └── GameStateTracker.java   # Tracks game state, generates announcements
-    ├── hooks/
-    │   ├── GamePanelHooks.java     # ByteBuddy instrumentation hooks
-    │   └── GameStateTrackerBridge.java # Cached reflection bridge for hooks
-    ├── launcher/
-    │   └── AccessibleLauncher.java # Toggle-checkbox launcher UI
-    ├── speech/                     # Platform-specific TTS
-    │   ├── SpeechEngine.java       # Interface
-    │   ├── SpeechOutput.java       # Platform detection & routing
-    │   ├── WindowsSpeech.java      # Tolk/SAPI (Windows)
-    │   ├── TolkSpeech.java         # Tolk DLL wrapper
-    │   ├── TolkLibrary.java        # JNA bindings for Tolk.dll
-    │   ├── MacOSSpeech.java        # macOS 'say' command
-    │   └── LinuxSpeech.java        # speech-dispatcher
-    ├── util/                        # Shared utilities
-    │   ├── ReflectionUtils.java    # Static reflection helpers (findFieldTyped, callMethod, etc.)
-    │   └── TextUtils.java          # Text formatting (cleanHtml, formatManaCost)
-    └── ui/                         # Accessible UI layer (~30 files)
-        ├── UIWatcher.java          # AWT event listener, UI scanner
-        ├── AccessibleGameWindow.java       # Main gameplay window
-        ├── AccessibleLobbyWindow.java      # Lobby browser
-        ├── AccessibleDeckEditorWindow.java # Deck builder
-        ├── AccessibleDeckPicker.java       # Deck selection dialog
-        ├── GamePanelHandler.java           # Game panel master handler
-        ├── LobbyHandler.java              # Lobby handler
-        ├── SideboardingHandler.java        # Sideboard UI
-        ├── DraftPanelHandler.java          # Draft UI
-        ├── *DialogHandler.java             # Various dialog handlers
-        ├── ChatAccessHelper.java           # Chat accessibility
-        ├── ZoneListPanel.java              # Accessible JList wrapper
-        └── ZoneItem.java                   # Card/zone item model
-```
+- The Maven version and JAR filename stay at `0.1.0`; actual releases are git tags (`v0.1.x`). Don't "fix" the pom version to match a tag.
+- The JAR in `dist/` is a prebuilt release artifact, not produced by the build. Update it manually when cutting a release.
 
 ## Architecture
 
 ### How the agent loads
 
-1. JVM loads `XMageAccessAgent.premain()` before XMage's main class
-2. `AccessibilityManager` initializes speech output and starts `UIWatcher` on the Swing EDT
-3. `UIWatcher` listens for AWT window/focus/key events and attaches handler classes to XMage panels as they appear
-4. `GamePanelHooks` uses ByteBuddy to instrument XMage game panel methods for real-time state tracking
+1. JVM calls `XMageAccessAgent.premain()` (declared via `Premain-Class` in `pom.xml`) before XMage's main class
+2. `AccessibilityManager` (singleton) initializes `SpeechOutput` and starts `UIWatcher` on the Swing EDT
+3. `UIWatcher` (`ui/UIWatcher.java`) listens for AWT window/focus/key events **and** runs a 1-second Swing Timer scan (`scanForKnownUI()`), detecting XMage panels by reflected class name and attaching the matching handler class to each
+4. Handlers extract state via reflection and announce changes through speech
 
-### Key patterns
+### State tracking is polling, not instrumentation
 
-- **Java Agent (javaagent):** Entry point via `premain()` with `Instrumentation` API
-- **Singleton:** `AccessibilityManager`, `GameStateTracker` — global state coordinators
-- **Strategy:** `SpeechEngine` interface with OS-specific implementations (`WindowsSpeech`, `MacOSSpeech`, `LinuxSpeech`)
-- **Reflection:** Extensively used to access XMage classes not on the agent's compile-time classpath — all XMage UI interaction goes through reflection
-- **Swing EDT safety:** UI operations use `SwingUtilities.invokeLater()`
-- **Concurrent collections:** `ConcurrentHashMap` for thread-safe handler management
+Game state announcements come from **polling with change detection**: `GamePanelHandler`, `AccessibleGameWindow`, and `AccessibleLobbyWindow` each run 5-second Swing Timers, diff the current reflected state against cached "last seen" fields, and announce differences.
+
+**Note:** `hooks/GamePanelHooks.java` (ByteBuddy `@Advice` classes), `hooks/GameStateTrackerBridge.java`, and `handlers/GameStateTracker.java` are currently **dead code** — no `AgentBuilder`/transformer ever installs the advice, so none of it executes. ByteBuddy is in the pom for this unfinished path. Don't assume these hooks fire; wire them up explicitly if you want event-driven tracking.
+
+### Layout
+
+```
+src/main/java/xmageaccess/
+├── XMageAccessAgent.java       # premain() entry point
+├── AccessibilityManager.java   # Singleton coordinator (speech + UIWatcher)
+├── handlers/, hooks/           # Dead code — unwired ByteBuddy path (see above)
+├── launcher/AccessibleLauncher.java  # Toggle-checkbox launcher UI
+├── speech/                     # SpeechEngine interface + per-OS implementations
+├── util/                       # ReflectionUtils, TextUtils (shared helpers)
+└── ui/                         # ~30 files: UIWatcher + all handlers/windows
+```
+
+Naming in `ui/`: `*Handler.java` attaches to an XMage panel, `*DialogHandler.java` to a dialog, `Accessible*Window.java` is a standalone accessible Swing window the agent creates. The largest and most central files are `GamePanelHandler.java` (gameplay shortcuts + polling), `AccessibleDeckEditorWindow.java`, and `AccessibleGameWindow.java`.
 
 ### Dependencies
 
 | Library | Version | Purpose |
 |---------|---------|---------|
-| ByteBuddy | 1.14.18 | Bytecode instrumentation (shaded into JAR) |
+| ByteBuddy | 1.14.18 | Only used by the unwired hooks path (shaded into JAR) |
 | JNA | 5.14.0 | Native access for Tolk DLLs (NVDA/JAWS) |
-
-All dependencies are shaded into the final JAR via `maven-shade-plugin`.
 
 ## Key Conventions
 
-### Code style
-
-- Java 8 source level — no lambdas beyond what Java 8 supports, no `var`, no records
-- Standard Java naming conventions (camelCase methods, PascalCase classes)
-- Handler classes follow the pattern `*Handler.java` for XMage panel handlers, `*DialogHandler.java` for dialog handlers
-- Accessible windows follow the pattern `Accessible*Window.java`
-
 ### Reflection usage
 
-All interaction with XMage classes uses reflection since XMage is not a compile-time dependency. Shared reflection helpers live in `xmageaccess.util.ReflectionUtils`:
+XMage is **not a compile-time dependency** — you cannot import XMage classes. All interaction goes through reflection, using helpers in `xmageaccess.util.ReflectionUtils`:
+
 - `findFieldTyped(target, name, type)` — walk class hierarchy, return typed field value
 - `findFieldDeep(target, name)` — walk class hierarchy, return field value as Object
-- `callMethod(obj, methodName)` / `callString` / `callInt` / `callBool` — invoke no-arg methods
+- `callMethod(obj, name)` / `callString` / `callInt` / `callBool` — invoke no-arg methods
 - `callMethodWithArg(obj, name, argType, arg)` — invoke single-arg method
 - Import via `import static xmageaccess.util.ReflectionUtils.*;`
 - Always wrap reflection calls in try-catch — XMage internals may change between versions
 
 ### Speech output
 
-- Call `AccessibilityManager.getInstance().getSpeech().speak(text)` to announce text (interrupts current speech)
-- Call `.speakQueued(text)` for non-interrupting speech
-- Call `.silence()` to stop speech
+- `AccessibilityManager.getInstance().getSpeech().speak(text)` — announce (interrupts current speech)
+- `.speakQueued(text)` — non-interrupting; `.silence()` — stop speech
+- Platform detection/routing is in `SpeechOutput.initialize()`; Windows tries Tolk (NVDA/JAWS) first, falls back to SAPI. New engines implement the `SpeechEngine` interface.
 - Keep announcements concise — screen reader users rely on brevity
 
 ### UI handlers
 
-- Each XMage panel/dialog gets its own handler class in `ui/`
-- Handlers are attached by `UIWatcher` when it detects the corresponding XMage component
-- Handlers must clean up AWT listeners and timers when their panel is closed to avoid leaks
-- Use `SwingUtilities.invokeLater()` for any Swing component access from non-EDT threads
-
-## Common Tasks
-
-### Adding a new dialog handler
-
-1. Create `src/main/java/xmageaccess/ui/NewDialogHandler.java`
-2. Identify the XMage dialog by class name (use reflection to inspect `component.getClass().getName()`)
-3. Register detection in `UIWatcher.java`
-4. Extract dialog state via reflection and announce via `SpeechOutput`
-5. Add keyboard shortcuts for navigation
-
-### Adding a new keyboard shortcut
-
-- Global shortcuts are registered in `UIWatcher.java` via `KeyEventDispatcher`
-- Game-specific shortcuts are in `AccessibleGameWindow.java` or `GamePanelHandler.java`
-- Always check for modifier keys (Ctrl, Alt) to avoid conflicts with normal text input
-
-### Modifying speech behavior
-
-- Platform detection is in `SpeechOutput.initialize()`
-- Windows speech routing: `WindowsSpeech` tries Tolk (NVDA/JAWS) first, falls back to SAPI
-- Add new engines by implementing `SpeechEngine` interface
+- Each XMage panel/dialog gets its own handler class in `ui/`, attached by `UIWatcher` when it detects the component (register detection there for new handlers)
+- Handlers must remove their AWT `KeyEventDispatcher`s, stop their `Timer`s, and drop listeners when their panel closes — several past bugs were leaked listeners persisting across games
+- Global shortcuts live in `UIWatcher`; gameplay shortcuts in `GamePanelHandler`/`AccessibleGameWindow` (the javadoc atop `GamePanelHandler` lists them all). Always require a modifier (Ctrl/Alt) to avoid clashing with text input.
 
 ## Gotchas
 
-- **No compile-time XMage dependency:** You cannot import XMage classes directly. All access is via reflection.
-- **Java 8 only:** The target JVM is Java 8. Do not use Java 9+ features.
-- **Swing threading:** Never access Swing components off the EDT. This causes subtle, hard-to-reproduce bugs.
-- **Resource leaks:** AWT `KeyEventDispatcher` instances, `Timer` objects, and window listeners must be explicitly removed when no longer needed. Several past bugs were caused by leaked listeners persisting across games.
-- **Game state lifecycle:** Game state must be fully reset between games in a match (best-of-three). Stale references to previous game panels cause crashes or wrong announcements.
-- **dist/ JAR is prebuilt:** The JAR in `dist/` is a release artifact, not auto-generated by the build. Update it manually when cutting a release.
+- **Java 8 only:** Do not use Java 9+ language features or APIs.
+- **Swing threading:** Never touch Swing components off the EDT — use `SwingUtilities.invokeLater()`. Violations cause subtle, hard-to-reproduce bugs.
+- **Game state lifecycle:** Game state must fully reset between games in a match (best-of-three). `GamePanelHandler` tracks the game UUID (`lastGameId`) to detect the switch. Stale references to previous game panels have repeatedly caused crashes and wrong announcements (see git history — this is the most recurrent bug class alongside listener leaks).
+- **DEVLOG-deck-editor.md** is a stale stub; the deck editor work it describes shipped in `AccessibleDeckEditorWindow.java`.
