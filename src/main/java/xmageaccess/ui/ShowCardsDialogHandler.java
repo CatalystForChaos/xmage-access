@@ -3,6 +3,9 @@ package xmageaccess.ui;
 import xmageaccess.AccessibilityManager;
 import xmageaccess.speech.SpeechOutput;
 
+import static xmageaccess.util.TextUtils.cleanHtml;
+import static xmageaccess.util.TextUtils.formatManaCost;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
@@ -249,14 +252,14 @@ public class ShowCardsDialogHandler {
             // Build brief description
             StringBuilder brief = new StringBuilder(info.name != null ? info.name : "Unknown");
             if (manaCost != null && !manaCost.isEmpty()) {
-                brief.append(" ").append(manaCost);
+                brief.append(", ").append(formatManaCost(manaCost));
             }
 
             // Build detailed description
             StringBuilder detailed = new StringBuilder(info.name != null ? info.name : "Unknown");
             detailed.append(". ");
             if (manaCost != null && !manaCost.isEmpty()) {
-                detailed.append("Cost: ").append(manaCost).append(". ");
+                detailed.append("Cost: ").append(formatManaCost(manaCost)).append(". ");
             }
             if (types != null && !types.isEmpty()) {
                 detailed.append(types).append(". ");
@@ -284,8 +287,7 @@ public class ShowCardsDialogHandler {
             if (rules != null && !rules.isEmpty()) {
                 detailed.append("Rules: ");
                 for (String rule : rules) {
-                    // Strip HTML tags
-                    String clean = rule.replaceAll("<[^>]*>", "").trim();
+                    String clean = cleanHtml(rule);
                     if (!clean.isEmpty()) {
                         detailed.append(clean).append(". ");
                     }
@@ -329,9 +331,19 @@ public class ShowCardsDialogHandler {
     }
 
     private boolean isTargeting() {
+        return isModalDialog();
+    }
+
+    /**
+     * True when this ShowCardsDialog is a modal targeting prompt (as opposed
+     * to a persistent reveal window). Used by UIWatcher to decide whether
+     * the game panel should yield its keyboard shortcuts to this dialog.
+     */
+    public boolean isModalDialog() {
         try {
             Method isModal = dialog.getClass().getMethod("isModal");
-            return (Boolean) isModal.invoke(dialog);
+            Object result = isModal.invoke(dialog);
+            return result instanceof Boolean && (Boolean) result && dialog.isVisible();
         } catch (Exception e) {
             return false;
         }

@@ -3,6 +3,7 @@ package xmageaccess.ui;
 import xmageaccess.AccessibilityManager;
 import xmageaccess.speech.SpeechOutput;
 
+import static xmageaccess.util.CardText.formatCardDetailed;
 import static xmageaccess.util.ReflectionUtils.*;
 import static xmageaccess.util.TextUtils.*;
 
@@ -17,8 +18,6 @@ import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -251,6 +250,11 @@ public class SideboardingHandler extends JFrame {
 
     @Override
     public void dispose() {
+        stopPolling();
+        if (refreshTimer != null) {
+            refreshTimer.stop();
+            refreshTimer = null;
+        }
         _activeWindows.remove(this);
         super.dispose();
     }
@@ -310,7 +314,7 @@ public class SideboardingHandler extends JFrame {
             _lastDeckCount = count;
 
             if (allCards != null) {
-                mainDeckZone.updateItems(buildGroupedCardList(allCards, ZoneItem.ActionType.MOVE_TO_SIDEBOARD));
+                mainDeckZone.updateItems(GroupedCardList.build(allCards, ZoneItem.ActionType.MOVE_TO_SIDEBOARD));
                 return;
             }
         }
@@ -330,7 +334,7 @@ public class SideboardingHandler extends JFrame {
             _lastSideboardCount = count;
 
             if (allCards != null) {
-                sideboardZone.updateItems(buildGroupedCardList(allCards, ZoneItem.ActionType.MOVE_TO_DECK));
+                sideboardZone.updateItems(GroupedCardList.build(allCards, ZoneItem.ActionType.MOVE_TO_DECK));
                 return;
             }
         }
@@ -338,73 +342,6 @@ public class SideboardingHandler extends JFrame {
             _lastSideboardCount = 0;
             sideboardZone.updateItems(new ArrayList<ZoneItem>());
         }
-    }
-
-    private java.util.List<ZoneItem> buildGroupedCardList(java.util.List<?> allCards, ZoneItem.ActionType actionType) {
-        java.util.List<?> cardsCopy = new ArrayList<Object>(allCards);
-
-        Map<String, java.util.List<Object>> grouped = new LinkedHashMap<>();
-        for (Object cardView : cardsCopy) {
-            String name = callString(cardView, "getName");
-            if (name == null) name = "Unknown";
-            if (!grouped.containsKey(name)) {
-                grouped.put(name, new ArrayList<Object>());
-            }
-            grouped.get(name).add(cardView);
-        }
-
-        java.util.List<ZoneItem> creatures = new ArrayList<>();
-        java.util.List<ZoneItem> spells = new ArrayList<>();
-        java.util.List<ZoneItem> lands = new ArrayList<>();
-        int creatureCount = 0, spellCount = 0, landCount = 0;
-
-        for (Map.Entry<String, java.util.List<Object>> entry : grouped.entrySet()) {
-            java.util.List<Object> cards = entry.getValue();
-            Object firstCard = cards.get(0);
-            int count = cards.size();
-
-            String name = entry.getKey();
-            String manaCost = callString(firstCard, "getManaCostStr");
-
-            StringBuilder display = new StringBuilder();
-            if (count > 1) display.append(count).append("x ");
-            display.append(name);
-            if (manaCost != null && !manaCost.isEmpty()) {
-                display.append(", ").append(formatManaCost(manaCost));
-            }
-
-            ZoneItem item = new ZoneItem(display.toString(), null, firstCard, actionType);
-
-            if (callBool(firstCard, "isCreature")) {
-                creatures.add(item);
-                creatureCount += count;
-            } else if (callBool(firstCard, "isLand")) {
-                lands.add(item);
-                landCount += count;
-            } else {
-                spells.add(item);
-                spellCount += count;
-            }
-        }
-
-        java.util.List<ZoneItem> result = new ArrayList<>();
-        if (!creatures.isEmpty()) {
-            result.add(new ZoneItem("--- Creatures (" + creatureCount + ") ---",
-                    creatureCount + " creatures", null, ZoneItem.ActionType.NONE));
-            result.addAll(creatures);
-        }
-        if (!spells.isEmpty()) {
-            result.add(new ZoneItem("--- Spells (" + spellCount + ") ---",
-                    spellCount + " spells", null, ZoneItem.ActionType.NONE));
-            result.addAll(spells);
-        }
-        if (!lands.isEmpty()) {
-            result.add(new ZoneItem("--- Lands (" + landCount + ") ---",
-                    landCount + " lands", null, ZoneItem.ActionType.NONE));
-            result.addAll(lands);
-        }
-
-        return result;
     }
 
     // ========== ITEM ACTIVATION ==========
@@ -628,13 +565,8 @@ public class SideboardingHandler extends JFrame {
     }
 
     private void returnFocusToXMage() {
-        for (java.awt.Window w : java.awt.Window.getWindows()) {
-            if (w != this && w.isVisible() && w instanceof JFrame) {
-                w.toFront();
-                w.requestFocus();
-                speak("Returned to XMage.");
-                return;
-            }
+        if (xmageaccess.util.UiUtils.focusXMageWindow(this)) {
+            speak("Returned to XMage.");
         }
     }
 
@@ -652,38 +584,6 @@ public class SideboardingHandler extends JFrame {
         return allCards != null ? allCards.size() : 0;
     }
 
-    private String formatCardDetailed(Object cardView) {
-        StringBuilder sb = new StringBuilder();
-        String name = callString(cardView, "getName");
-        String manaCost = callString(cardView, "getManaCostStr");
-        String types = callString(cardView, "getTypeText");
-        String power = callString(cardView, "getPower");
-        String toughness = callString(cardView, "getToughness");
-        boolean isCreature = callBool(cardView, "isCreature");
-
-        sb.append(name != null ? name : "Unknown").append(". ");
-        if (manaCost != null && !manaCost.isEmpty()) {
-            sb.append("Mana cost: ").append(formatManaCost(manaCost)).append(". ");
-        }
-        if (types != null && !types.isEmpty()) {
-            sb.append(types).append(". ");
-        }
-        if (isCreature && power != null && toughness != null) {
-            sb.append(power).append("/").append(toughness).append(". ");
-        }
-
-        Object rules = callMethod(cardView, "getRules");
-        if (rules instanceof java.util.List) {
-            java.util.List<?> rulesList = (java.util.List<?>) rules;
-            if (!rulesList.isEmpty()) {
-                sb.append("Rules: ");
-                for (Object rule : rulesList) {
-                    sb.append(cleanHtml(rule.toString())).append(". ");
-                }
-            }
-        }
-        return sb.toString();
-    }
 
     private void speak(String text) {
         SpeechOutput speech = AccessibilityManager.getInstance().getSpeech();

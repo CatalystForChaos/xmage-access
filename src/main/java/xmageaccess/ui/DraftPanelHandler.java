@@ -3,6 +3,7 @@ package xmageaccess.ui;
 import xmageaccess.AccessibilityManager;
 import xmageaccess.speech.SpeechOutput;
 
+import static xmageaccess.util.CardText.formatCardDetailed;
 import static xmageaccess.util.ReflectionUtils.*;
 import static xmageaccess.util.TextUtils.*;
 
@@ -257,12 +258,18 @@ public class DraftPanelHandler {
             Object result = sendPick.invoke(null, draftId, cardId, cardsHidden);
 
             if (result != null) {
-                // Update the picked cards display
-                Object picks = callMethod(result, "getPicks");
-                if (picks != null) {
-                    Method loadPicked = draftPanel.getClass().getDeclaredMethod("loadCardsToPickedCardsArea", picks.getClass());
-                    loadPicked.setAccessible(true);
-                    loadPicked.invoke(draftPanel, picks);
+                // The pick was sent successfully. UI refresh failures below
+                // must not be reported as a failed pick.
+                try {
+                    // Update the picked cards display
+                    Object picks = callMethod(result, "getPicks");
+                    if (picks != null) {
+                        Method loadPicked = draftPanel.getClass().getDeclaredMethod("loadCardsToPickedCardsArea", picks.getClass());
+                        loadPicked.setAccessible(true);
+                        loadPicked.invoke(draftPanel, picks);
+                    }
+                } catch (Exception uiError) {
+                    System.err.println("[XMage Access] Draft pick UI update failed: " + uiError.getMessage());
                 }
 
                 // Clear the booster
@@ -421,44 +428,6 @@ public class DraftPanelHandler {
         return callString(boosterCards.get(index)[1], "getName");
     }
 
-    // ========== CARD FORMATTING ==========
-
-    private String formatCardDetailed(Object cardView) {
-        StringBuilder sb = new StringBuilder();
-        String name = callString(cardView, "getName");
-        String manaCost = callString(cardView, "getManaCostStr");
-        String types = callString(cardView, "getTypeText");
-        boolean isCreature = callBool(cardView, "isCreature");
-        String power = callString(cardView, "getPower");
-        String toughness = callString(cardView, "getToughness");
-
-        sb.append(name != null ? name : "Unknown").append(". ");
-
-        if (manaCost != null && !manaCost.isEmpty()) {
-            sb.append("Mana cost: ").append(formatManaCost(manaCost)).append(". ");
-        }
-
-        if (types != null && !types.isEmpty()) {
-            sb.append(types).append(". ");
-        }
-
-        if (isCreature && power != null && toughness != null) {
-            sb.append(power).append("/").append(toughness).append(". ");
-        }
-
-        // Rules text
-        Object rules = callMethod(cardView, "getRules");
-        if (rules instanceof List && !((List<?>) rules).isEmpty()) {
-            sb.append("Rules: ");
-            for (Object rule : (List<?>) rules) {
-                String ruleText = rule.toString();
-                ruleText = ruleText.replaceAll("<[^>]*>", "").trim();
-                if (!ruleText.isEmpty()) sb.append(ruleText).append(". ");
-            }
-        }
-
-        return sb.toString();
-    }
 
     // ========== VISIBILITY ==========
 

@@ -3,6 +3,7 @@ package xmageaccess.ui;
 import xmageaccess.AccessibilityManager;
 import xmageaccess.speech.SpeechOutput;
 
+import static xmageaccess.util.CardText.formatCardDetailed;
 import static xmageaccess.util.ReflectionUtils.*;
 import static xmageaccess.util.TextUtils.*;
 
@@ -21,9 +22,7 @@ import java.awt.event.MouseEvent;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -522,6 +521,11 @@ public class AccessibleDeckEditorWindow extends JFrame {
                     speak("Deck editor closed.");
                     return;
                 }
+                if (!isVisible()) {
+                    // Window closed by the user — skip refresh work but stay
+                    // alive so the dispose path above still runs later.
+                    return;
+                }
                 refreshReferences();
                 refreshAllZones();
             } catch (Exception ex) {
@@ -677,7 +681,7 @@ public class AccessibleDeckEditorWindow extends JFrame {
             _lastDeckCount = count;
 
             if (allCards != null) {
-                mainDeckZone.updateItems(buildGroupedCardList(allCards, ZoneItem.ActionType.REMOVE_FROM_DECK));
+                mainDeckZone.updateItems(GroupedCardList.build(allCards, ZoneItem.ActionType.REMOVE_FROM_DECK));
                 return;
             }
         }
@@ -698,7 +702,7 @@ public class AccessibleDeckEditorWindow extends JFrame {
             _lastSideboardCount = count;
 
             if (allCards != null) {
-                sideboardZone.updateItems(buildGroupedCardList(allCards, ZoneItem.ActionType.REMOVE_FROM_SIDEBOARD));
+                sideboardZone.updateItems(GroupedCardList.build(allCards, ZoneItem.ActionType.REMOVE_FROM_SIDEBOARD));
                 return;
             }
         }
@@ -706,82 +710,6 @@ public class AccessibleDeckEditorWindow extends JFrame {
             _lastSideboardCount = 0;
             sideboardZone.updateItems(new ArrayList<ZoneItem>());
         }
-    }
-
-    /**
-     * Groups cards by name and categorizes into creatures, spells, lands.
-     * Displays as "Nx CardName, manaCost" for duplicates.
-     */
-    private List<ZoneItem> buildGroupedCardList(List<?> allCards, ZoneItem.ActionType actionType) {
-        // Copy to avoid ConcurrentModificationException during import/load
-        List<?> cardsCopy = new ArrayList<Object>(allCards);
-
-        // Group by name, preserving order
-        Map<String, List<Object>> grouped = new LinkedHashMap<>();
-        for (Object cardView : cardsCopy) {
-            String name = callString(cardView, "getName");
-            if (name == null) name = "Unknown";
-            if (!grouped.containsKey(name)) {
-                grouped.put(name, new ArrayList<Object>());
-            }
-            grouped.get(name).add(cardView);
-        }
-
-        // Categorize
-        List<ZoneItem> creatures = new ArrayList<>();
-        List<ZoneItem> spells = new ArrayList<>();
-        List<ZoneItem> lands = new ArrayList<>();
-        int creatureCount = 0, spellCount = 0, landCount = 0;
-
-        for (Map.Entry<String, List<Object>> entry : grouped.entrySet()) {
-            List<Object> cards = entry.getValue();
-            Object firstCard = cards.get(0);
-            int count = cards.size();
-
-            String name = entry.getKey();
-            String manaCost = callString(firstCard, "getManaCostStr");
-
-            StringBuilder display = new StringBuilder();
-            if (count > 1) display.append(count).append("x ");
-            display.append(name);
-            if (manaCost != null && !manaCost.isEmpty()) {
-                display.append(", ").append(formatManaCost(manaCost));
-            }
-
-            // Store the first CardView for removal; detail is loaded lazily on D press
-            ZoneItem item = new ZoneItem(display.toString(), null,
-                    firstCard, actionType);
-
-            if (callBool(firstCard, "isCreature")) {
-                creatures.add(item);
-                creatureCount += count;
-            } else if (callBool(firstCard, "isLand")) {
-                lands.add(item);
-                landCount += count;
-            } else {
-                spells.add(item);
-                spellCount += count;
-            }
-        }
-
-        List<ZoneItem> result = new ArrayList<>();
-        if (!creatures.isEmpty()) {
-            result.add(new ZoneItem("--- Creatures (" + creatureCount + ") ---",
-                    creatureCount + " creatures", null, ZoneItem.ActionType.NONE));
-            result.addAll(creatures);
-        }
-        if (!spells.isEmpty()) {
-            result.add(new ZoneItem("--- Spells (" + spellCount + ") ---",
-                    spellCount + " spells", null, ZoneItem.ActionType.NONE));
-            result.addAll(spells);
-        }
-        if (!lands.isEmpty()) {
-            result.add(new ZoneItem("--- Lands (" + landCount + ") ---",
-                    landCount + " lands", null, ZoneItem.ActionType.NONE));
-            result.addAll(lands);
-        }
-
-        return result;
     }
 
     // ========== ITEM ACTIVATION ==========
@@ -826,7 +754,6 @@ public class AccessibleDeckEditorWindow extends JFrame {
                     "doubleClick", int.class, MouseEvent.class, boolean.class);
             doubleClick.invoke(mainModel, viewIndex.intValue(), null, false);
 
-            String name = callString(mainModel, "view") != null ? item.getDisplayName() : item.getDisplayName();
             speak("Added " + item.getDisplayName().split(",")[0] + " to deck.");
 
             scheduleRefresh();
@@ -1402,49 +1329,9 @@ public class AccessibleDeckEditorWindow extends JFrame {
     }
 
     private void returnFocusToXMage() {
-        for (Window w : Window.getWindows()) {
-            if (w != this && w.isVisible() && w instanceof JFrame) {
-                w.toFront();
-                w.requestFocus();
-                speak("Returned to XMage.");
-                return;
-            }
+        if (xmageaccess.util.UiUtils.focusXMageWindow(this)) {
+            speak("Returned to XMage.");
         }
-    }
-
-    // ========== FORMATTING HELPERS ==========
-
-    private String formatCardDetailed(Object cardView) {
-        StringBuilder sb = new StringBuilder();
-        String name = callString(cardView, "getName");
-        String manaCost = callString(cardView, "getManaCostStr");
-        String types = callString(cardView, "getTypeText");
-        String power = callString(cardView, "getPower");
-        String toughness = callString(cardView, "getToughness");
-        boolean isCreature = callBool(cardView, "isCreature");
-
-        sb.append(name != null ? name : "Unknown").append(". ");
-        if (manaCost != null && !manaCost.isEmpty()) {
-            sb.append("Mana cost: ").append(formatManaCost(manaCost)).append(". ");
-        }
-        if (types != null && !types.isEmpty()) {
-            sb.append(types).append(". ");
-        }
-        if (isCreature && power != null && toughness != null) {
-            sb.append(power).append("/").append(toughness).append(". ");
-        }
-
-        Object rules = callMethod(cardView, "getRules");
-        if (rules instanceof List) {
-            List<?> rulesList = (List<?>) rules;
-            if (!rulesList.isEmpty()) {
-                sb.append("Rules: ");
-                for (Object rule : rulesList) {
-                    sb.append(cleanHtml(rule.toString())).append(". ");
-                }
-            }
-        }
-        return sb.toString();
     }
 
     private void speak(String text) {

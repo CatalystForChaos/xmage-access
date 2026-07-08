@@ -2,9 +2,9 @@ package xmageaccess.ui;
 
 import xmageaccess.AccessibilityManager;
 import xmageaccess.speech.SpeechOutput;
-import xmageaccess.util.ReflectionUtils;
-import xmageaccess.util.TextUtils;
+import xmageaccess.util.UiUtils;
 
+import static xmageaccess.util.CardText.formatCardDetailed;
 import static xmageaccess.util.ReflectionUtils.*;
 import static xmageaccess.util.TextUtils.*;
 
@@ -94,7 +94,10 @@ public class AccessibleGameWindow extends JFrame {
     }
 
     private void buildUI() {
-        setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
+        // DISPOSE so the UIWatcher scanner notices a user-closed window
+        // (isDisplayable() == false) and reopens a fresh one with reset
+        // state. With HIDE_ON_CLOSE the window would stay hidden forever.
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setSize(600, 800);
         setLocationRelativeTo(null);
 
@@ -159,10 +162,16 @@ public class AccessibleGameWindow extends JFrame {
     private void startPolling() {
         pollTimer = new Timer(5000, e -> {
             try {
-                if (!gamePanel.isVisible()) {
+                if (!gamePanel.isDisplayable()) {
+                    // The game panel was removed from the UI: the game is over.
                     stopPolling();
                     dispose();
                     speak("Game ended.");
+                    return;
+                }
+                if (!gamePanel.isVisible()) {
+                    // Just a tab switch (panel still in the hierarchy).
+                    // Don't dispose and don't announce a bogus "Game ended."
                     return;
                 }
                 refreshReferences();
@@ -781,13 +790,8 @@ public class AccessibleGameWindow extends JFrame {
     }
 
     private void returnFocusToXMage() {
-        for (Window w : Window.getWindows()) {
-            if (w != this && w.isVisible() && w instanceof JFrame) {
-                w.toFront();
-                w.requestFocus();
-                speak("Returned to XMage.");
-                return;
-            }
+        if (UiUtils.focusXMageWindow(this)) {
+            speak("Returned to XMage.");
         }
     }
 
@@ -977,39 +981,6 @@ public class AccessibleGameWindow extends JFrame {
     }
 
     // ========== FORMATTING HELPERS ==========
-
-    private String formatCardDetailed(Object cardView) {
-        StringBuilder sb = new StringBuilder();
-        String name = callString(cardView, "getName");
-        String manaCost = callString(cardView, "getManaCostStr");
-        String types = callString(cardView, "getTypeText");
-        String power = callString(cardView, "getPower");
-        String toughness = callString(cardView, "getToughness");
-        boolean isCreature = callBool(cardView, "isCreature");
-
-        sb.append(name != null ? name : "Unknown").append(". ");
-        if (manaCost != null && !manaCost.isEmpty()) {
-            sb.append("Mana cost: ").append(formatManaCost(manaCost)).append(". ");
-        }
-        if (types != null && !types.isEmpty()) {
-            sb.append(types).append(". ");
-        }
-        if (isCreature && power != null && toughness != null) {
-            sb.append(power).append("/").append(toughness).append(". ");
-        }
-
-        Object rules = callMethod(cardView, "getRules");
-        if (rules instanceof List) {
-            List<?> rulesList = (List<?>) rules;
-            if (!rulesList.isEmpty()) {
-                sb.append("Rules: ");
-                for (Object rule : rulesList) {
-                    sb.append(cleanHtml(rule.toString())).append(". ");
-                }
-            }
-        }
-        return sb.toString();
-    }
 
     private String formatPermanentDetailed(Object perm) {
         StringBuilder sb = new StringBuilder();

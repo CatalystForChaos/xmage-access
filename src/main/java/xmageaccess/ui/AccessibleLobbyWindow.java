@@ -53,6 +53,9 @@ public class AccessibleLobbyWindow extends JFrame {
     private final List<Integer> gameRowMap = new ArrayList<>();
 
     private Timer pollTimer;
+    // True when we hid ourselves because the lobby panel was hidden
+    // (user entered a game); lets us re-show automatically afterwards.
+    private boolean autoHidden = false;
 
     // Column indices (match LobbyHandler)
     private static final int COL_DECK_TYPE = 1;
@@ -376,9 +379,25 @@ public class AccessibleLobbyWindow extends JFrame {
     private void startPolling() {
         pollTimer = new Timer(5000, e -> {
             try {
+                if (!lobbyPanel.isDisplayable()) {
+                    // Lobby panel removed (disconnect) — UIWatcher disposes us.
+                    return;
+                }
                 if (!lobbyPanel.isVisible()) {
-                    stopPolling();
-                    setVisible(false);
+                    // User entered a game or switched tabs. Hide, but keep
+                    // polling so the window can come back with the lobby.
+                    if (isVisible()) {
+                        autoHidden = true;
+                        setVisible(false);
+                    }
+                    return;
+                }
+                if (autoHidden && !isVisible()) {
+                    autoHidden = false;
+                    setVisible(true);
+                }
+                if (!isVisible()) {
+                    // Closed by the user — don't refresh a hidden window.
                     return;
                 }
                 refreshGames();
@@ -538,13 +557,7 @@ public class AccessibleLobbyWindow extends JFrame {
     // ========== MISC ==========
 
     private void returnFocusToXMage() {
-        for (Window w : Window.getWindows()) {
-            if (w.isVisible() && !(w instanceof AccessibleLobbyWindow)) {
-                w.toFront();
-                w.requestFocus();
-                break;
-            }
-        }
+        xmageaccess.util.UiUtils.focusXMageWindow(this);
     }
 
     private String getCell(JTable table, int row, int col) {

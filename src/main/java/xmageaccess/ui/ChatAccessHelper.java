@@ -256,14 +256,23 @@ public class ChatAccessHelper {
             // Get plain text content, stripping HTML
             String text = txtConversation.getText();
             if (text == null) return "";
-            // Strip HTML tags
+            // Turn explicit line break tags into newlines before stripping,
+            // then strip remaining tags. Decode &amp; last so entities are
+            // not double-decoded.
+            text = text.replaceAll("(?i)<br\\s*/?>", "\n");
             text = text.replaceAll("<[^>]*>", "");
             text = text.replaceAll("&nbsp;", " ");
-            text = text.replaceAll("&amp;", "&");
             text = text.replaceAll("&lt;", "<");
             text = text.replaceAll("&gt;", ">");
-            text = text.replaceAll("\\s+", " ").trim();
-            return text;
+            text = text.replaceAll("&quot;", "\"");
+            text = text.replaceAll("&#0?39;", "'");
+            text = text.replaceAll("&amp;", "&");
+            // Collapse horizontal whitespace only — newlines separate
+            // messages and are needed by onNewContent()'s line splitting.
+            text = text.replaceAll("[ \\t\\x0B\\f\\r]+", " ");
+            text = text.replaceAll(" ?\\n ?", "\n");
+            text = text.replaceAll("\\n{2,}", "\n");
+            return text.trim();
         } catch (Exception e) {
             return "";
         }

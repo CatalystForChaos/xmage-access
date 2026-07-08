@@ -3,6 +3,7 @@ package xmageaccess.ui;
 import xmageaccess.AccessibilityManager;
 import xmageaccess.speech.SpeechOutput;
 
+import static xmageaccess.util.CardText.formatCardDetailed;
 import static xmageaccess.util.ReflectionUtils.*;
 import static xmageaccess.util.TextUtils.*;
 
@@ -213,6 +214,11 @@ public class GamePanelHandler {
         keyDispatcher = e -> {
                     if (e.getID() != KeyEvent.KEY_PRESSED) return false;
                     if (!isGameVisible()) return false;
+                    // While a choice/prompt dialog is open, its handler owns the
+                    // shortcuts (Ctrl+Enter, Ctrl+1/2/3, ...). This dispatcher was
+                    // registered first and would otherwise consume them.
+                    UIWatcher watcher = AccessibilityManager.getInstance().getUIWatcher();
+                    if (watcher != null && watcher.isBlockingDialogVisible()) return false;
 
                     // --- Ctrl+Shift shortcuts ---
                     if (e.isControlDown() && e.isShiftDown()) {
@@ -382,7 +388,12 @@ public class GamePanelHandler {
                 triggerWindowRefresh();
                 return;
             }
-            lastGameId = currentGameId;
+            if (currentGameId != null) {
+                // Never overwrite with null: a transient reflection failure
+                // would otherwise trigger a spurious "new game" reset on the
+                // next poll when the id becomes readable again.
+                lastGameId = currentGameId;
+            }
 
             // Announce turn changes (new turn = new active player's turn)
             if (turn != lastTurn && turn > 0) {
@@ -1526,7 +1537,10 @@ public class GamePanelHandler {
             if (needFeedback != null && needFeedback) {
                 JButton linkBtn = getButtonField(linkName);
                 if (linkBtn != null) {
-                    String text = visibleBtn != null ? visibleBtn.getText() : linkName.replace("link", "");
+                    String text = linkBtn.getText();
+                    if (text == null || text.isEmpty()) {
+                        text = linkName.replace("link", "");
+                    }
                     speak(text);
                     linkBtn.doClick();
                     return;
@@ -1594,40 +1608,6 @@ public class GamePanelHandler {
         }
         if (types != null && !types.isEmpty()) {
             sb.append(". ").append(types);
-        }
-        return sb.toString();
-    }
-
-    private String formatCardDetailed(Object cardView) {
-        StringBuilder sb = new StringBuilder();
-        String name = callString(cardView, "getName");
-        String manaCost = callString(cardView, "getManaCostStr");
-        String types = callString(cardView, "getTypeText");
-        String power = callString(cardView, "getPower");
-        String toughness = callString(cardView, "getToughness");
-        boolean isCreature = callBool(cardView, "isCreature");
-
-        sb.append(name != null ? name : "Unknown").append(". ");
-        if (manaCost != null && !manaCost.isEmpty()) {
-            sb.append("Mana cost: ").append(formatManaCost(manaCost)).append(". ");
-        }
-        if (types != null && !types.isEmpty()) {
-            sb.append(types).append(". ");
-        }
-        if (isCreature && power != null && toughness != null) {
-            sb.append(power).append("/").append(toughness).append(". ");
-        }
-
-        // Rules text
-        Object rules = callMethod(cardView, "getRules");
-        if (rules instanceof List) {
-            List<?> rulesList = (List<?>) rules;
-            if (!rulesList.isEmpty()) {
-                sb.append("Rules: ");
-                for (Object rule : rulesList) {
-                    sb.append(cleanHtml(rule.toString())).append(". ");
-                }
-            }
         }
         return sb.toString();
     }

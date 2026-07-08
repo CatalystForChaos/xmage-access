@@ -4,11 +4,9 @@ import xmageaccess.AccessibilityManager;
 import xmageaccess.speech.SpeechOutput;
 
 import javax.swing.*;
-import javax.swing.table.TableModel;
 import java.awt.*;
 import java.awt.KeyEventDispatcher;
 import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
@@ -35,7 +33,6 @@ public class LobbyHandler {
     private JTable completedTable;
     private JTable playersTable;
     private int currentGameIndex = -1;
-    private KeyListener keyListener;
     private KeyEventDispatcher keyDispatcher;
     private ChatAccessHelper chatHelper;
 
@@ -107,11 +104,6 @@ public class LobbyHandler {
     }
 
     public void detach() {
-        if (keyListener != null && lobbyPanel != null) {
-            lobbyPanel.removeKeyListener(keyListener);
-            // Also remove from tables
-            if (activeTable != null) activeTable.removeKeyListener(keyListener);
-        }
         if (keyDispatcher != null) {
             KeyboardFocusManager.getCurrentKeyboardFocusManager()
                     .removeKeyEventDispatcher(keyDispatcher);
@@ -176,60 +168,8 @@ public class LobbyHandler {
     }
 
     private void addKeyboardNavigation() {
-        keyListener = new KeyListener() {
-            @Override
-            public void keyPressed(KeyEvent e) {
-                if (!e.isControlDown() || e.isShiftDown()) return;
-
-                switch (e.getKeyCode()) {
-                    case KeyEvent.VK_G:
-                        listGames();
-                        e.consume();
-                        break;
-                    case KeyEvent.VK_UP:
-                        navigateGame(-1);
-                        e.consume();
-                        break;
-                    case KeyEvent.VK_DOWN:
-                        navigateGame(1);
-                        e.consume();
-                        break;
-                    case KeyEvent.VK_J:
-                        joinSelectedGame();
-                        e.consume();
-                        break;
-                    case KeyEvent.VK_W:
-                        watchSelectedGame();
-                        e.consume();
-                        break;
-                    case KeyEvent.VK_N:
-                        createNewTable();
-                        e.consume();
-                        break;
-                    case KeyEvent.VK_R:
-                        readCurrentGame();
-                        e.consume();
-                        break;
-                    case KeyEvent.VK_P:
-                        listPlayers();
-                        e.consume();
-                        break;
-                    case KeyEvent.VK_I:
-                        announceLobbyInfo();
-                        e.consume();
-                        break;
-                }
-            }
-
-            @Override
-            public void keyTyped(KeyEvent e) {}
-
-            @Override
-            public void keyReleased(KeyEvent e) {}
-        };
-
-        // Add the listener globally using a toolkit listener
-        // so it works regardless of which component has focus
+        // Register globally via a key event dispatcher so the shortcuts
+        // work regardless of which component has focus.
         keyDispatcher = e -> {
                     if (e.getID() != KeyEvent.KEY_PRESSED) return false;
                     if (!e.isControlDown()) return false;
@@ -237,6 +177,11 @@ public class LobbyHandler {
                     // Don't intercept keys when deck editor or sideboarding window is open
                     if (AccessibleDeckEditorWindow.isAnyWindowVisible()) return false;
                     if (SideboardingHandler.isAnyWindowVisible()) return false;
+                    // Don't intercept keys while a dialog (connect, new table,
+                    // preferences, ...) is open on top of the lobby — the
+                    // dialog's handler owns the shortcuts then.
+                    UIWatcher watcher = AccessibilityManager.getInstance().getUIWatcher();
+                    if (watcher != null && watcher.isAnyDialogVisible()) return false;
 
                     // Ctrl+Shift shortcuts
                     if (e.isShiftDown()) {

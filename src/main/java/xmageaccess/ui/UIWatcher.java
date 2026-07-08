@@ -27,6 +27,9 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
     private final Map<Component, AccessibleDeckEditorWindow> deckEditorWindows = new ConcurrentHashMap<>();
     private final Map<Component, SideboardingHandler> sideboardingWindows = new ConcurrentHashMap<>();
     private final java.util.Set<String> loggedUnknownDialogs = java.util.Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
+    // Components whose handler is pending removal -> timestamp of first stale sighting
+    private final Map<Component, Long> pendingDetach = new ConcurrentHashMap<>();
+    private static final long DETACH_GRACE_MS = 2000;
     private ConnectDialogHandler connectHandler;
     private LobbyHandler lobbyHandler;
     private AccessibleLobbyWindow lobbyWindow;
@@ -136,10 +139,110 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
 
             // Check if the connect dialog has closed and lobby should be announced
             checkConnectDialogClosed();
+
+            // Clean up handlers whose components are gone. Without this,
+            // every dialog ever opened would leak its KeyEventDispatcher
+            // and timers for the lifetime of the client.
+            sweepStaleHandlers();
         } catch (Exception e) {
             // Avoid crashing the AWT event thread
             System.err.println("[XMage Access] UI scan error: " + e.getMessage());
         }
+    }
+
+    /**
+     * Detaches handlers whose component has been removed from the UI
+     * (or, for dialogs, hidden). Uses a grace period so brief hide/show
+     * cycles and re-parenting don't cause churn. Detaching hidden dialogs
+     * also means a dialog instance that XMage reuses gets a fresh handler
+     * (and a fresh announcement) the next time it is shown.
+     */
+    private void sweepStaleHandlers() {
+        long now = System.currentTimeMillis();
+        for (Map.Entry<Component, Object> entry : attachedHandlers.entrySet()) {
+            Component comp = entry.getKey();
+            boolean stale = !comp.isDisplayable()
+                    || (isDialogHandler(entry.getValue()) && !comp.isVisible());
+            if (!stale) {
+                pendingDetach.remove(comp);
+                continue;
+            }
+            Long since = pendingDetach.get(comp);
+            if (since == null) {
+                pendingDetach.put(comp, now);
+            } else if (now - since >= DETACH_GRACE_MS) {
+                pendingDetach.remove(comp);
+                detach(comp);
+                System.out.println("[XMage Access] Cleaned up handler for closed "
+                        + comp.getClass().getSimpleName() + ".");
+            }
+        }
+    }
+
+    /**
+     * True for handlers of transient dialogs (as opposed to long-lived
+     * panels like the lobby, game panel, or deck editor, which may be
+     * hidden while the user is on another tab).
+     */
+    private static boolean isDialogHandler(Object handler) {
+        return handler instanceof ConnectDialogHandler
+                || handler instanceof NewTableDialogHandler
+                || handler instanceof NewTournamentDialogHandler
+                || handler instanceof DeckGeneratorDialogHandler
+                || handler instanceof DownloadImagesDialogHandler
+                || handler instanceof TableWaitingDialogHandler
+                || handler instanceof PickChoiceDialogHandler
+                || handler instanceof PickNumberDialogHandler
+                || handler instanceof PickCheckBoxDialogHandler
+                || handler instanceof PickPileDialogHandler
+                || handler instanceof PickMultiNumberDialogHandler
+                || handler instanceof UserRequestDialogHandler
+                || handler instanceof GameEndDialogHandler
+                || handler instanceof ShowCardsDialogHandler
+                || handler instanceof PreferencesDialogHandler;
+    }
+
+    /**
+     * True while a choice/prompt dialog that should receive keyboard
+     * shortcuts is visible. GamePanelHandler yields its shortcuts
+     * (Ctrl+Enter, Ctrl+1/2/3, ...) while this returns true, so dialog
+     * handlers registered later in the dispatcher chain actually get them.
+     */
+    public boolean isBlockingDialogVisible() {
+        for (Map.Entry<Component, Object> entry : attachedHandlers.entrySet()) {
+            Component comp = entry.getKey();
+            if (!comp.isVisible() || !comp.isDisplayable()) continue;
+            Object handler = entry.getValue();
+            if (handler instanceof PickChoiceDialogHandler
+                    || handler instanceof PickNumberDialogHandler
+                    || handler instanceof PickMultiNumberDialogHandler
+                    || handler instanceof PickCheckBoxDialogHandler
+                    || handler instanceof PickPileDialogHandler
+                    || handler instanceof UserRequestDialogHandler
+                    || handler instanceof GameEndDialogHandler) {
+                return true;
+            }
+            if (handler instanceof ShowCardsDialogHandler
+                    && ((ShowCardsDialogHandler) handler).isModalDialog()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * True while any handled dialog is visible. The lobby yields its
+     * global shortcuts (Ctrl+D, Ctrl+N, ...) while this returns true.
+     */
+    public boolean isAnyDialogVisible() {
+        for (Map.Entry<Component, Object> entry : attachedHandlers.entrySet()) {
+            if (isDialogHandler(entry.getValue())
+                    && entry.getKey().isVisible()
+                    && entry.getKey().isDisplayable()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void scanComponent(Component comp) {
@@ -219,14 +322,9 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
                     Object handler = attachedHandlers.get(comp);
                     if (handler instanceof GamePanelHandler) {
                         ((GamePanelHandler) handler).resetState();
+                        openGameWindow(comp, (GamePanelHandler) handler);
+                        System.out.println("[XMage Access] New game in match detected — reopened accessible game window.");
                     }
-                    AccessibleGameWindow newWindow = new AccessibleGameWindow(comp);
-                    newWindow.setVisible(true);
-                    gameWindows.put(comp, newWindow);
-                    if (handler instanceof GamePanelHandler) {
-                        ((GamePanelHandler) handler).setAccessibleWindow(newWindow);
-                    }
-                    System.out.println("[XMage Access] New game in match detected — reopened accessible game window.");
                 }
             }
         }
@@ -357,6 +455,9 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
         connectHandler = new ConnectDialogHandler(dialog);
         connectHandler.attach();
         attachedHandlers.put(dialog, connectHandler);
+        // A (re)appearing connect dialog means the next lobby should be
+        // announced again (e.g. after a disconnect).
+        lobbyAnnounced = false;
     }
 
     private void attachTableWaitingDialog(Component dialog) {
@@ -439,8 +540,16 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
         GamePanelHandler handler = new GamePanelHandler(panel);
         handler.attach();
         attachedHandlers.put(panel, handler);
+        openGameWindow(panel, handler);
+        System.out.println("[XMage Access] Accessible game window opened.");
+    }
 
-        // Open accessible game window alongside the handler
+    /**
+     * Creates and wires an accessible game window for a game panel.
+     * Used both on first attach and when reopening for a new game in
+     * a match, so the close-to-reset behavior is identical in both cases.
+     */
+    private AccessibleGameWindow openGameWindow(Component panel, final GamePanelHandler handler) {
         AccessibleGameWindow window = new AccessibleGameWindow(panel);
         window.setVisible(true);
         gameWindows.put(panel, window);
@@ -448,8 +557,9 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
         // Connect handler to window for event-driven refreshes
         handler.setAccessibleWindow(window);
 
-        // Closing the accessible window wipes all cached game state in the handler.
-        // This gives the user an explicit way to force a clean slate mid-game.
+        // Closing the accessible window wipes all cached game state in the
+        // handler; the scanner then reopens a fresh window. This gives the
+        // user an explicit way to force a clean slate mid-game.
         window.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
@@ -457,8 +567,7 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
                 System.out.println("[XMage Access] Accessible game window closed — game state reset.");
             }
         });
-
-        System.out.println("[XMage Access] Accessible game window opened.");
+        return window;
     }
 
     private void attachLobby(Component panel) {
@@ -564,11 +673,15 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
      * Called when a previously attached component is no longer visible.
      */
     public void detach(Component comp) {
+        pendingDetach.remove(comp);
         Object handler = attachedHandlers.remove(comp);
         if (handler instanceof ConnectDialogHandler) {
             ((ConnectDialogHandler) handler).detach();
         } else if (handler instanceof LobbyHandler) {
             ((LobbyHandler) handler).detach();
+            if (handler == lobbyHandler) {
+                lobbyHandler = null;
+            }
             if (lobbyWindow != null) {
                 lobbyWindow.stopPolling();
                 lobbyWindow.dispose();

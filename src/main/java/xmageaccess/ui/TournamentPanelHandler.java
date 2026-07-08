@@ -63,6 +63,10 @@ public class TournamentPanelHandler {
                     .removeKeyEventDispatcher(keyDispatcher);
             keyDispatcher = null;
         }
+        if (chatHelper != null) {
+            chatHelper.detach();
+            chatHelper = null;
+        }
     }
 
     private void discoverComponents() {
