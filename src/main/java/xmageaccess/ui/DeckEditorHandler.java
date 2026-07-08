@@ -44,8 +44,7 @@ public class DeckEditorHandler {
                     + "Ctrl+N new deck, Ctrl+O load, Ctrl+S save. "
                     + "Ctrl+F1 for all shortcuts.");
         } catch (Exception e) {
-            System.err.println("[XMage Access] Error attaching to deck editor: " + e.getMessage());
-            e.printStackTrace();
+            xmageaccess.util.Log.warn("DeckEditor", "attach failed", e);
         }
     }
 

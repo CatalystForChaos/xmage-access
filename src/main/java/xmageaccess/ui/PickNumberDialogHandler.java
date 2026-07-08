@@ -156,7 +156,7 @@ public class PickNumberDialogHandler {
         if (pane == null) return null;
         String text = pane.getText();
         if (text == null) return null;
-        return text.replaceAll("<[^>]*>", "").replaceAll("\\s+", " ").trim();
+        return xmageaccess.util.TextUtils.cleanHtml(text);
     }
 
     private String readLabel(String fieldName) {

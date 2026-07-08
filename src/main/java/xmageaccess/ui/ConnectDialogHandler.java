@@ -42,8 +42,7 @@ public class ConnectDialogHandler {
                     + "Tab through fields: server, port, username, password. "
                     + "Press Enter in any field to connect.");
         } catch (Exception e) {
-            System.err.println("[XMage Access] Error attaching to connect dialog: " + e.getMessage());
-            e.printStackTrace();
+            xmageaccess.util.Log.warn("Connect", "attach failed", e);
         }
     }
 

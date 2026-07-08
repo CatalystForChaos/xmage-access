@@ -109,7 +109,9 @@ public class TournamentPanelHandler {
                     speak("Tournament state: " + state);
                 }
                 if (state != null) lastState = state;
-            } catch (Exception ignored) {}
+            } catch (Exception ex) {
+                xmageaccess.util.Log.debug("Tournament", "poll error: " + ex);
+            }
         });
         pollTimer.setRepeats(true);
         pollTimer.start();

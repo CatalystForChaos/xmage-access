@@ -6,46 +6,53 @@ import java.lang.reflect.Method;
  * Caches reflection lookups for GamePanelHooks advice classes.
  * ByteBuddy advice is inlined into the target class, so it cannot
  * hold static state directly — this helper class provides the cache.
+ *
+ * <p>All cached references are resolved once inside a holder class's
+ * static initializer, which the JVM guarantees runs exactly once and
+ * is visible to all threads — no synchronization or double-checked
+ * locking needed.
  */
 public class GameStateTrackerBridge {
 
-    private static volatile Class<?> trackerClass;
-    private static volatile Method getInstanceMethod;
-    private static volatile Method onGameInitMethod;
-    private static volatile Method onGameUpdateMethod;
-    private static volatile Method onQuestionMethod;
-    private static volatile Method onInformMethod;
-    private static volatile Method onSelectMethod;
-    private static volatile Method onGameEndMethod;
+    private static final class Holder {
+        static final Class<?> trackerClass;
+        static final Method getInstance, onGameInit, onGameUpdate, onQuestion, onInform, onSelect, onGameEnd;
 
-    private static Class<?> getTrackerClass() throws ClassNotFoundException {
-        Class<?> c = trackerClass;
-        if (c == null) {
-            c = Class.forName("xmageaccess.handlers.GameStateTracker");
+        static {
+            Class<?> c = null;
+            Method gi = null, oi = null, ou = null, oq = null, oin = null, os = null, oe = null;
+            try {
+                c = Class.forName("xmageaccess.handlers.GameStateTracker");
+                gi = c.getMethod("getInstance");
+                oi = c.getMethod("onGameInit", Object.class);
+                ou = c.getMethod("onGameUpdate", Object.class);
+                oq = c.getMethod("onQuestion", String.class);
+                oin = c.getMethod("onInform", String.class);
+                os = c.getMethod("onSelect", Object.class, String.class);
+                oe = c.getMethod("onGameEnd", String.class);
+            } catch (Throwable t) {
+                System.err.println("[XMage Access] Bridge init failed: " + t.getMessage());
+            }
             trackerClass = c;
+            getInstance = gi;
+            onGameInit = oi;
+            onGameUpdate = ou;
+            onQuestion = oq;
+            onInform = oin;
+            onSelect = os;
+            onGameEnd = oe;
         }
-        return c;
     }
 
-    private static Object getTracker() throws Exception {
-        Class<?> c = getTrackerClass();
-        Method m = getInstanceMethod;
-        if (m == null) {
-            m = c.getMethod("getInstance");
-            getInstanceMethod = m;
-        }
-        return m.invoke(null);
+    private static Object tracker() throws Exception {
+        if (Holder.getInstance == null) return null;
+        return Holder.getInstance.invoke(null);
     }
 
     public static void onGameInit(Object gameView) {
         try {
-            Object tracker = getTracker();
-            Method m = onGameInitMethod;
-            if (m == null) {
-                m = getTrackerClass().getMethod("onGameInit", Object.class);
-                onGameInitMethod = m;
-            }
-            m.invoke(tracker, gameView);
+            Object t = tracker();
+            if (t != null && Holder.onGameInit != null) Holder.onGameInit.invoke(t, gameView);
         } catch (Exception e) {
             System.err.println("[XMage Access] Hook error (init): " + e.getMessage());
         }
@@ -53,13 +60,8 @@ public class GameStateTrackerBridge {
 
     public static void onGameUpdate(Object gameView) {
         try {
-            Object tracker = getTracker();
-            Method m = onGameUpdateMethod;
-            if (m == null) {
-                m = getTrackerClass().getMethod("onGameUpdate", Object.class);
-                onGameUpdateMethod = m;
-            }
-            m.invoke(tracker, gameView);
+            Object t = tracker();
+            if (t != null && Holder.onGameUpdate != null) Holder.onGameUpdate.invoke(t, gameView);
         } catch (Exception e) {
             System.err.println("[XMage Access] Hook error (updateGame): " + e.getMessage());
         }
@@ -67,13 +69,8 @@ public class GameStateTrackerBridge {
 
     public static void onQuestion(String question) {
         try {
-            Object tracker = getTracker();
-            Method m = onQuestionMethod;
-            if (m == null) {
-                m = getTrackerClass().getMethod("onQuestion", String.class);
-                onQuestionMethod = m;
-            }
-            m.invoke(tracker, question);
+            Object t = tracker();
+            if (t != null && Holder.onQuestion != null) Holder.onQuestion.invoke(t, question);
         } catch (Exception e) {
             System.err.println("[XMage Access] Hook error (ask): " + e.getMessage());
         }
@@ -81,13 +78,8 @@ public class GameStateTrackerBridge {
 
     public static void onInform(String information) {
         try {
-            Object tracker = getTracker();
-            Method m = onInformMethod;
-            if (m == null) {
-                m = getTrackerClass().getMethod("onInform", String.class);
-                onInformMethod = m;
-            }
-            m.invoke(tracker, information);
+            Object t = tracker();
+            if (t != null && Holder.onInform != null) Holder.onInform.invoke(t, information);
         } catch (Exception e) {
             System.err.println("[XMage Access] Hook error (inform): " + e.getMessage());
         }
@@ -95,13 +87,8 @@ public class GameStateTrackerBridge {
 
     public static void onSelect(Object gameView, String message) {
         try {
-            Object tracker = getTracker();
-            Method m = onSelectMethod;
-            if (m == null) {
-                m = getTrackerClass().getMethod("onSelect", Object.class, String.class);
-                onSelectMethod = m;
-            }
-            m.invoke(tracker, gameView, message);
+            Object t = tracker();
+            if (t != null && Holder.onSelect != null) Holder.onSelect.invoke(t, gameView, message);
         } catch (Exception e) {
             System.err.println("[XMage Access] Hook error (select): " + e.getMessage());
         }
@@ -109,13 +96,8 @@ public class GameStateTrackerBridge {
 
     public static void onGameEnd(String message) {
         try {
-            Object tracker = getTracker();
-            Method m = onGameEndMethod;
-            if (m == null) {
-                m = getTrackerClass().getMethod("onGameEnd", String.class);
-                onGameEndMethod = m;
-            }
-            m.invoke(tracker, message);
+            Object t = tracker();
+            if (t != null && Holder.onGameEnd != null) Holder.onGameEnd.invoke(t, message);
         } catch (Exception e) {
             System.err.println("[XMage Access] Hook error (endMessage): " + e.getMessage());
         }

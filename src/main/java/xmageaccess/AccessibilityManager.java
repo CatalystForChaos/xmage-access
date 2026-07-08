@@ -41,8 +41,15 @@ public class AccessibilityManager {
             uiWatcher.start();
         });
 
-        // Clean up native resources on shutdown
+        // Clean up native resources and AWT listeners on shutdown
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            if (uiWatcher != null) {
+                try {
+                    uiWatcher.stop();
+                } catch (Exception e) {
+                    System.err.println("[XMage Access] Error stopping UI watcher: " + e.getMessage());
+                }
+            }
             if (speech != null) {
                 speech.shutdown();
             }

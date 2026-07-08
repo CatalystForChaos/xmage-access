@@ -85,15 +85,26 @@ No Tolk DLLs are needed on macOS — speech uses the built-in `say` command.
 
 See `dist/README-accessible.txt` for the full shortcut reference.
 
+## Performance characteristics
+
+A few internals worth knowing if you're hacking on it:
+
+- **Speech is fully asynchronous.** All TTS engine calls run on a single daemon background thread (`SpeechOutput`), so the Swing EDT never blocks on `say` / `spd-say` / `powershell` startup. A rapid burst of `speak()` calls coalesces to the latest text — only the newest announcement is spoken. Identical announcements within a 250 ms window are deduplicated.
+- **Reflection is cached.** Every `ReflectionUtils.findFieldDeep` / `callMethod` / `findField` etc. lookup is memoized in a `ConcurrentHashMap` keyed by `(class, name)`, including negative results. Hot poll loops are O(1) cache hits rather than class-hierarchy walks — *don't* introduce raw `Class.getMethod` / `getDeclaredField` calls in new code, route them through `ReflectionUtils` so the cache applies.
+- **Listeners and timers are explicitly owned.** `UIWatcher.stop()` (called from the JVM shutdown hook) cancels its scan timer and removes the AWT and `KeyboardFocusManager` listeners; every `*Handler.detach()` removes its `KeyEventDispatcher` and stops/nulls any owned timers. This matters across best-of-three matches — old leaks survived a full match boundary.
+- **Diagnostic logging.** Launch with `-Dxmageaccess.log=debug` to see `[XMage Access][CATEGORY]` debug-channel output (reflection misses, hook init failures, timer lifecycle). Off by default.
+
 ## Building from Source
 
-Requires Java 8 and Maven.
+Requires Java 8 (JDK 1.8) and Maven 3.6+.
 
 ```
 mvn package
 ```
 
 The built jar is at `target/xmage-access-0.1.0.jar`. Copy it to `xmage/mage-client/lib/` in your XMage installation.
+
+For manual verification after changes, see `TESTING.md`.
 
 ## License
 

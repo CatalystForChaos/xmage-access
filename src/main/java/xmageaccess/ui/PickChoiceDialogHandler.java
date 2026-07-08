@@ -168,8 +168,7 @@ public class PickChoiceDialogHandler {
         if (value != null && !value.isEmpty()) return value;
 
         // Fallback: strip HTML from toString
-        String text = item.toString();
-        text = text.replaceAll("<[^>]*>", "").trim();
+        String text = xmageaccess.util.TextUtils.cleanHtml(item.toString());
         return text.isEmpty() ? "Unknown" : text;
     }
 
@@ -178,7 +177,7 @@ public class PickChoiceDialogHandler {
         if (pane == null) return null;
         String text = pane.getText();
         if (text == null) return null;
-        return text.replaceAll("<[^>]*>", "").replaceAll("\\s+", " ").trim();
+        return xmageaccess.util.TextUtils.cleanHtml(text);
     }
 
     private boolean isDialogVisible() {

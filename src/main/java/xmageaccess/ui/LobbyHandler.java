@@ -68,8 +68,7 @@ public class LobbyHandler {
             discoverComponents();
             addKeyboardNavigation();
         } catch (Exception e) {
-            System.err.println("[XMage Access] Error attaching to lobby: " + e.getMessage());
-            e.printStackTrace();
+            xmageaccess.util.Log.warn("Lobby", "attach failed", e);
         }
     }
 

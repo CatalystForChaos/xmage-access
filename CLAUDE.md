@@ -72,12 +72,22 @@ XMage is **not a compile-time dependency** — you cannot import XMage classes. 
 - Import via `import static xmageaccess.util.ReflectionUtils.*;`
 - Always wrap reflection calls in try-catch — XMage internals may change between versions
 
+All lookups (Method/Field by name, with and without class-hierarchy walking) are cached in `ConcurrentHashMap`s inside `ReflectionUtils`. Negative results are cached too, so a missing member is never re-resolved. **Do not introduce ad-hoc `Class.getMethod` / `getDeclaredField` calls in hot paths** — go through `ReflectionUtils` so the cache covers them.
+
 ### Speech output
 
 - `AccessibilityManager.getInstance().getSpeech().speak(text)` — announce (interrupts current speech)
 - `.speakQueued(text)` — non-interrupting; `.silence()` — stop speech
 - Platform detection/routing is in `SpeechOutput.initialize()`; Windows tries Tolk (NVDA/JAWS) first, falls back to SAPI. New engines implement the `SpeechEngine` interface.
 - Keep announcements concise — screen reader users rely on brevity
+
+All engine calls run on a single daemon background thread, so callers (EDT or otherwise) never block on TTS. Two coalescing rules apply:
+- **Dedup window (250 ms):** identical text within this window is dropped before it reaches the engine.
+- **Interrupt-speak coalescing:** if a new `speak(text)` arrives while a previous one is still queued (but not yet executed), the queued one is cancelled — only the newest text gets spoken. `speakQueued` does *not* coalesce.
+
+### Logging
+
+`xmageaccess.util.Log.warn(category, message, throwable)` for recoverable failures; `Log.debug(...)` for diagnostic-only output (gated by `-Dxmageaccess.log=debug`). Prefer these over `System.err.println` + `e.printStackTrace()` in new code.
 
 ### UI handlers
 

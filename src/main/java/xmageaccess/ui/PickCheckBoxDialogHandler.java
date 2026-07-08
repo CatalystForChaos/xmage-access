@@ -226,8 +226,7 @@ public class PickCheckBoxDialogHandler {
         val = findFieldTyped(item, "value", String.class);
         if (val != null && !val.isEmpty()) return val;
 
-        String text = item.toString();
-        return text.replaceAll("<[^>]*>", "").trim();
+        return cleanHtml(item.toString());
     }
 
     private boolean isItemChecked(int index) {
