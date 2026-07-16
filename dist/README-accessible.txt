@@ -328,9 +328,11 @@ Rarity filters:
   Ctrl+F6           Special
 
 Expansion set:
-  Ctrl+E            Browse a set: type part of its name, then all
-                    cards of that set are listed (page through them
-                    with the next/previous page entries)
+  Ctrl+E            Choose a set from a list: browse with Up/Down
+                    (every entry is spoken), optionally type letters
+                    to narrow the list, Enter picks the set and lists
+                    all of its cards (page through them with the
+                    next/previous page entries), Escape cancels
   Ctrl+T            Next expansion set
   Ctrl+Shift+T      Previous expansion set
 

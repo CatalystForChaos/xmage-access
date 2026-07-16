@@ -617,47 +617,44 @@ public class AccessibleDeckEditorWindow extends JFrame {
     }
 
     /**
-     * Prompts for a set name, selects the matching entry in XMage's
-     * expansion combo, and lists all cards of that set (empty search).
+     * Opens an accessible list of all sets. Picking one selects it in
+     * XMage's expansion combo and lists all cards of that set.
      */
     private void promptSetBrowse() {
         if (cbExpansionSet == null || cbExpansionSet.getItemCount() == 0) {
             speak("Set selection not available.");
             return;
         }
-        String query = JOptionPane.showInputDialog(this,
-                "Set name (a part is enough, empty = all sets):",
-                "Browse Set", JOptionPane.PLAIN_MESSAGE);
-        if (query == null) {
-            speak("Cancelled.");
-            return;
+        List<String> sets = new ArrayList<>();
+        for (int i = 0; i < cbExpansionSet.getItemCount(); i++) {
+            Object it = cbExpansionSet.getItemAt(i);
+            if (it == null) continue;
+            String name = it.toString();
+            // Skip XMage's synthetic multi-selection entry
+            if (name.startsWith("Multiple sets selected")) continue;
+            sets.add(name);
         }
-        query = query.trim().toLowerCase();
+        new AccessibleListPicker(this, "Choose Set", "sets", sets, this::browseSet)
+                .showPicker();
+    }
 
+    /**
+     * Selects the given set in XMage's expansion combo and lists all its
+     * cards via an empty search. Called by the set picker dialog.
+     */
+    private void browseSet(String setName) {
+        // Resolve the combo index at pick time — the combo can shift when
+        // XMage removes its synthetic "Multiple sets selected" entry.
         int matchIndex = -1;
-        if (query.isEmpty()) {
-            matchIndex = 0; // "- All Sets"
-        } else {
-            // Prefer a name starting with the query, else first containing it
-            for (int i = 0; i < cbExpansionSet.getItemCount(); i++) {
-                Object it = cbExpansionSet.getItemAt(i);
-                if (it != null && it.toString().toLowerCase().startsWith(query)) {
-                    matchIndex = i;
-                    break;
-                }
-            }
-            if (matchIndex < 0) {
-                for (int i = 0; i < cbExpansionSet.getItemCount(); i++) {
-                    Object it = cbExpansionSet.getItemAt(i);
-                    if (it != null && it.toString().toLowerCase().contains(query)) {
-                        matchIndex = i;
-                        break;
-                    }
-                }
+        for (int i = 0; i < cbExpansionSet.getItemCount(); i++) {
+            Object it = cbExpansionSet.getItemAt(i);
+            if (it != null && it.toString().equals(setName)) {
+                matchIndex = i;
+                break;
             }
         }
         if (matchIndex < 0) {
-            speak("No set matching " + query + ".");
+            speak("Set " + setName + " not found.");
             return;
         }
 
@@ -670,8 +667,6 @@ public class AccessibleDeckEditorWindow extends JFrame {
         }
 
         cbExpansionSet.setSelectedIndex(matchIndex);
-        Object selected = cbExpansionSet.getSelectedItem();
-        String setName = selected != null ? selected.toString() : "set";
 
         if (xmageSearchButton != null) {
             xmageSearchButton.doClick();
@@ -1119,7 +1114,7 @@ public class AccessibleDeckEditorWindow extends JFrame {
         sb.append("Colors: Ctrl+1 white, 2 blue, 3 black, 4 red, 5 green, 6 colorless. ");
         sb.append("Types: Ctrl+Shift+1 creatures, 2 instants, 3 sorceries, 4 enchantments, 5 artifacts, 6 planeswalkers, 7 lands. ");
         sb.append("Rarity: Ctrl+F2 common, F3 uncommon, F4 rare, F5 mythic, F6 special. ");
-        sb.append("Sets: Ctrl+E browse a set by name, Ctrl+T next set, Ctrl+Shift+T previous set. ");
+        sb.append("Sets: Ctrl+E choose a set from a list and show all its cards, Ctrl+T next set, Ctrl+Shift+T previous set. ");
         sb.append("Ctrl+F read filters, Ctrl+Shift+F clear filters, Ctrl+Shift+C cycle search mode. ");
         sb.append("Tab between zones, Enter to add or remove, D for detail, Ctrl+Enter submit. ");
         sb.append("Results show " + PAGE_SIZE + " per page; use the next and previous page entries at the list edges.");
