@@ -94,12 +94,19 @@ public class AccessibleDeckEditorWindow extends JFrame {
 
     private Timer pollTimer;
 
-    private static final int MAX_SEARCH_RESULTS = 100;
+    private static final int PAGE_SIZE = 100;
 
     // Track previous counts to skip unnecessary refreshes
     private int _lastSearchResultCount = -1;
     private int _lastDeckCount = -1;
     private int _lastSideboardCount = -1;
+
+    // Search result paging: which PAGE_SIZE window of the results is shown.
+    // _lastActualViewSize tracks the real result count (unlike
+    // _lastSearchResultCount, which is set to -1 as a force-refresh
+    // sentinel) so the page only resets when the result set really changed.
+    private int searchPage = 0;
+    private int _lastActualViewSize = -1;
 
     public AccessibleDeckEditorWindow(Component deckEditorPanel) {
         super("XMage Accessible Deck Editor");
@@ -504,6 +511,13 @@ public class AccessibleDeckEditorWindow extends JFrame {
             public void actionPerformed(ActionEvent e) { cycleExpansionSet(-1); }
         });
 
+        // Ctrl+E = Browse a set: pick it by name and list all its cards
+        windowInput.put(KeyStroke.getKeyStroke(KeyEvent.VK_E, KeyEvent.CTRL_DOWN_MASK), "browseSet");
+        windowAction.put("browseSet", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) { promptSetBrowse(); }
+        });
+
         // Ctrl+Shift+C = Toggle search by name/type/rules
         windowInput.put(KeyStroke.getKeyStroke(KeyEvent.VK_C, KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK), "cycleSearchMode");
         windowAction.put("cycleSearchMode", new AbstractAction() {
@@ -576,21 +590,96 @@ public class AccessibleDeckEditorWindow extends JFrame {
         }
 
         speak("Searching for " + query + ".");
+        searchPage = 0;
+        announceResultsAndFocus();
+    }
 
-        // Refresh search results after a short delay, then move focus to results
+    /**
+     * After triggering an XMage search, wait briefly for the result view
+     * to update, then announce the result count and focus the results list.
+     */
+    private void announceResultsAndFocus() {
         Timer refreshTimer = new Timer(500, e -> {
             refreshReferences();
             _lastSearchResultCount = -1; // Force refresh after search
             refreshSearchResultsZone();
-            int count = searchResultsZone.getList().getModel().getSize();
-            speak(count + " results found.");
-            if (count > 0) {
-                searchResultsZone.getList().setSelectedIndex(0);
-                searchResultsZone.getList().requestFocusInWindow();
+            int total = Math.max(0, _lastActualViewSize);
+            speak(total + " results found."
+                    + (total > PAGE_SIZE ? " Showing first " + PAGE_SIZE + "." : ""));
+            JList<ZoneItem> list = searchResultsZone.getList();
+            if (list.getModel().getSize() > 0) {
+                list.setSelectedIndex(0);
+                list.requestFocusInWindow();
             }
         });
         refreshTimer.setRepeats(false);
         refreshTimer.start();
+    }
+
+    /**
+     * Prompts for a set name, selects the matching entry in XMage's
+     * expansion combo, and lists all cards of that set (empty search).
+     */
+    private void promptSetBrowse() {
+        if (cbExpansionSet == null || cbExpansionSet.getItemCount() == 0) {
+            speak("Set selection not available.");
+            return;
+        }
+        String query = JOptionPane.showInputDialog(this,
+                "Set name (a part is enough, empty = all sets):",
+                "Browse Set", JOptionPane.PLAIN_MESSAGE);
+        if (query == null) {
+            speak("Cancelled.");
+            return;
+        }
+        query = query.trim().toLowerCase();
+
+        int matchIndex = -1;
+        if (query.isEmpty()) {
+            matchIndex = 0; // "- All Sets"
+        } else {
+            // Prefer a name starting with the query, else first containing it
+            for (int i = 0; i < cbExpansionSet.getItemCount(); i++) {
+                Object it = cbExpansionSet.getItemAt(i);
+                if (it != null && it.toString().toLowerCase().startsWith(query)) {
+                    matchIndex = i;
+                    break;
+                }
+            }
+            if (matchIndex < 0) {
+                for (int i = 0; i < cbExpansionSet.getItemCount(); i++) {
+                    Object it = cbExpansionSet.getItemAt(i);
+                    if (it != null && it.toString().toLowerCase().contains(query)) {
+                        matchIndex = i;
+                        break;
+                    }
+                }
+            }
+        }
+        if (matchIndex < 0) {
+            speak("No set matching " + query + ".");
+            return;
+        }
+
+        // Empty search text lists every card that matches the set filter.
+        // Clear it first: selecting the set below already triggers XMage's
+        // filterCards() via the combo's action listener.
+        searchField.setText("");
+        if (xmageSearchField != null) {
+            xmageSearchField.setText("");
+        }
+
+        cbExpansionSet.setSelectedIndex(matchIndex);
+        Object selected = cbExpansionSet.getSelectedItem();
+        String setName = selected != null ? selected.toString() : "set";
+
+        if (xmageSearchButton != null) {
+            xmageSearchButton.doClick();
+        }
+
+        speak("Set " + setName + ". Loading all cards.");
+        searchPage = 0;
+        announceResultsAndFocus();
     }
 
     // ========== REFRESH ==========
@@ -629,6 +718,8 @@ public class AccessibleDeckEditorWindow extends JFrame {
             if (_lastSearchResultCount != 0) {
                 searchResultsZone.updateItems(new ArrayList<ZoneItem>());
                 _lastSearchResultCount = 0;
+                _lastActualViewSize = 0;
+                searchPage = 0;
             }
             return;
         }
@@ -636,16 +727,37 @@ public class AccessibleDeckEditorWindow extends JFrame {
         List<?> view = findFieldTyped(mainModel, "view", List.class);
         int viewSize = view != null ? view.size() : 0;
 
-        // Skip refresh if count hasn't changed (avoids costly rebuild)
+        // Skip refresh if count hasn't changed (avoids costly rebuild).
+        // Page switches and forced refreshes set this to -1 first.
         if (viewSize == _lastSearchResultCount) return;
         _lastSearchResultCount = viewSize;
 
+        // A genuinely new result set (new search / filter change) starts
+        // back on page one; a forced refresh with unchanged results keeps
+        // the user's current page.
+        if (viewSize != _lastActualViewSize) {
+            searchPage = 0;
+            _lastActualViewSize = viewSize;
+        }
+        int maxPage = viewSize == 0 ? 0 : (viewSize - 1) / PAGE_SIZE;
+        if (searchPage > maxPage) searchPage = maxPage;
+        if (searchPage < 0) searchPage = 0;
+
         List<ZoneItem> items = new ArrayList<>();
-        if (view != null) {
+        if (view != null && viewSize > 0) {
             // Copy to avoid ConcurrentModificationException during import/load
             List<?> viewCopy = new ArrayList<Object>(view);
-            int limit = Math.min(viewCopy.size(), MAX_SEARCH_RESULTS);
-            for (int i = 0; i < limit; i++) {
+            int start = searchPage * PAGE_SIZE;
+            int end = Math.min(start + PAGE_SIZE, viewCopy.size());
+
+            if (searchPage > 0) {
+                items.add(new ZoneItem(
+                        "Previous page: results " + (start - PAGE_SIZE + 1) + " to " + start
+                                + " of " + viewSize,
+                        null, null, ZoneItem.ActionType.PREV_PAGE));
+            }
+
+            for (int i = start; i < end; i++) {
                 Object cardView = viewCopy.get(i);
                 String name = callString(cardView, "getName");
                 String manaCost = callString(cardView, "getManaCostStr");
@@ -656,18 +768,57 @@ public class AccessibleDeckEditorWindow extends JFrame {
                     display.append(", ").append(formatManaCost(manaCost));
                 }
 
-                // Defer detail text to lazy load on D key press
+                // Defer detail text to lazy load on D key press.
+                // The stored index is absolute within the full result view.
                 items.add(new ZoneItem(display.toString(), null,
                         Integer.valueOf(i), ZoneItem.ActionType.ADD_TO_DECK));
             }
 
-            if (viewSize > MAX_SEARCH_RESULTS) {
+            if (end < viewSize) {
                 items.add(new ZoneItem(
-                        "Showing " + MAX_SEARCH_RESULTS + " of " + viewSize + " results. Narrow your search.",
-                        null, null, ZoneItem.ActionType.NONE));
+                        "Next page: results " + (end + 1) + " to "
+                                + Math.min(end + PAGE_SIZE, viewSize) + " of " + viewSize,
+                        null, null, ZoneItem.ActionType.NEXT_PAGE));
             }
         }
         searchResultsZone.updateItems(items);
+    }
+
+    /**
+     * Moves the search results to the previous/next page and announces
+     * the new range. Triggered by the pager items at the list edges.
+     */
+    private void changeSearchPage(int delta) {
+        List<?> view = mainModel != null ? findFieldTyped(mainModel, "view", List.class) : null;
+        int viewSize = view != null ? view.size() : 0;
+        if (viewSize == 0) {
+            speak("No results.");
+            return;
+        }
+        int maxPage = (viewSize - 1) / PAGE_SIZE;
+        int newPage = Math.max(0, Math.min(maxPage, searchPage + delta));
+        if (newPage == searchPage) {
+            speak(delta > 0 ? "Last page." : "First page.");
+            return;
+        }
+        searchPage = newPage;
+        _lastSearchResultCount = -1; // force rebuild while keeping the page
+        refreshSearchResultsZone();
+
+        // Land on the first card of the page (skip a leading pager item)
+        JList<ZoneItem> list = searchResultsZone.getList();
+        int firstCard = searchPage > 0 ? 1 : 0;
+        if (list.getModel().getSize() > firstCard) {
+            list.setSelectedIndex(firstCard);
+            list.ensureIndexIsVisible(firstCard);
+        }
+
+        // Speak last: rapid speak() calls coalesce to the newest text, so
+        // this must come after the selection change's own announcement.
+        int start = searchPage * PAGE_SIZE;
+        int end = Math.min(start + PAGE_SIZE, viewSize);
+        speak("Page " + (searchPage + 1) + " of " + (maxPage + 1)
+                + ". Results " + (start + 1) + " to " + end + " of " + viewSize + ".");
     }
 
     private void refreshMainDeckZone() {
@@ -733,6 +884,12 @@ public class AccessibleDeckEditorWindow extends JFrame {
                 break;
             case REMOVE_FROM_SIDEBOARD:
                 moveCardFromSideboardToDeck(item);
+                break;
+            case NEXT_PAGE:
+                changeSearchPage(1);
+                break;
+            case PREV_PAGE:
+                changeSearchPage(-1);
                 break;
             case NONE:
                 speak("No action for this item.");
@@ -962,9 +1119,10 @@ public class AccessibleDeckEditorWindow extends JFrame {
         sb.append("Colors: Ctrl+1 white, 2 blue, 3 black, 4 red, 5 green, 6 colorless. ");
         sb.append("Types: Ctrl+Shift+1 creatures, 2 instants, 3 sorceries, 4 enchantments, 5 artifacts, 6 planeswalkers, 7 lands. ");
         sb.append("Rarity: Ctrl+F2 common, F3 uncommon, F4 rare, F5 mythic, F6 special. ");
-        sb.append("Sets: Ctrl+T next set, Ctrl+Shift+T previous set. ");
+        sb.append("Sets: Ctrl+E browse a set by name, Ctrl+T next set, Ctrl+Shift+T previous set. ");
         sb.append("Ctrl+F read filters, Ctrl+Shift+F clear filters, Ctrl+Shift+C cycle search mode. ");
-        sb.append("Tab between zones, Enter to add or remove, D for detail, Ctrl+Enter submit.");
+        sb.append("Tab between zones, Enter to add or remove, D for detail, Ctrl+Enter submit. ");
+        sb.append("Results show " + PAGE_SIZE + " per page; use the next and previous page entries at the list edges.");
 
         speak(sb.toString());
     }

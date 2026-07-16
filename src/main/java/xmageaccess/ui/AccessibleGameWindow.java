@@ -46,8 +46,16 @@ public class AccessibleGameWindow extends JFrame {
     private final ZoneListPanel revealedZone;
     private final ZoneListPanel manaPoolZone;
     private final ZoneListPanel gameLogZone;
+    private final ZoneListPanel chatZone;
 
     private final List<ZoneListPanel> allZones = new ArrayList<>();
+
+    // Chat input bar at the bottom — sends to the game chat via the
+    // handler's ChatAccessHelper (focus juggling into XMage's own input
+    // field doesn't work across windows).
+    private final JTextField chatInput;
+    private final JButton chatSendButton;
+    private ChatAccessHelper chatHelper;
 
     // Cached reflection references (re-read each poll)
     private Object helperPanel;
@@ -74,6 +82,11 @@ public class AccessibleGameWindow extends JFrame {
         revealedZone = new ZoneListPanel("Revealed Cards");
         manaPoolZone = new ZoneListPanel("Mana Pool");
         gameLogZone = new ZoneListPanel("Game Log");
+        chatZone = new ZoneListPanel("Chat");
+
+        chatInput = new JTextField();
+        chatInput.getAccessibleContext().setAccessibleName("Game chat message");
+        chatSendButton = new JButton("Send");
 
         allZones.add(actionsZone);
         allZones.add(handZone);
@@ -86,6 +99,7 @@ public class AccessibleGameWindow extends JFrame {
         allZones.add(revealedZone);
         allZones.add(manaPoolZone);
         allZones.add(gameLogZone);
+        allZones.add(chatZone);
 
         buildUI();
         discoverComponents();
@@ -110,8 +124,49 @@ public class AccessibleGameWindow extends JFrame {
             mainPanel.add(zone);
         }
 
-        JScrollPane scrollPane = new JScrollPane(mainPanel);
-        add(scrollPane, BorderLayout.CENTER);
+        // Chat input bar at the bottom (sends to the game chat)
+        JPanel chatBar = new JPanel(new BorderLayout(4, 0));
+        chatBar.setBorder(BorderFactory.createTitledBorder("Send Game Chat Message"));
+        chatBar.setMaximumSize(new Dimension(Integer.MAX_VALUE, 70));
+        chatInput.setToolTipText("Type a message and press Enter or click Send");
+        chatBar.add(chatInput, BorderLayout.CENTER);
+        chatBar.add(chatSendButton, BorderLayout.EAST);
+        chatSendButton.addActionListener(e -> sendChatMessage());
+        chatInput.addActionListener(e -> sendChatMessage());
+
+        JPanel outer = new JPanel(new BorderLayout());
+        outer.add(new JScrollPane(mainPanel), BorderLayout.CENTER);
+        outer.add(chatBar, BorderLayout.SOUTH);
+        add(outer, BorderLayout.CENTER);
+    }
+
+    /** Wired by UIWatcher/GamePanelHandler so chat goes through one shared helper. */
+    public void setChatHelper(ChatAccessHelper helper) {
+        this.chatHelper = helper;
+    }
+
+    /** Brings this window forward and puts the caret into the chat input. */
+    public void focusChatInput() {
+        toFront();
+        requestFocus();
+        // Window focus transfer is asynchronous; request the field focus
+        // afterwards or it can get lost when another window was focused.
+        SwingUtilities.invokeLater(() -> chatInput.requestFocusInWindow());
+        speak("Game chat input. Type your message and press Enter to send.");
+    }
+
+    private void sendChatMessage() {
+        String text = chatInput.getText().trim();
+        if (text.isEmpty()) {
+            speak("Message is empty.");
+            return;
+        }
+        if (chatHelper != null) {
+            chatHelper.sendMessage(text);
+            chatInput.setText("");
+        } else {
+            speak("Chat not available.");
+        }
     }
 
     private void discoverComponents() {
@@ -251,6 +306,24 @@ public class AccessibleGameWindow extends JFrame {
         refreshRevealedZone();
         refreshManaPoolZone();
         refreshGameLogZone();
+        refreshChatZone();
+    }
+
+    private void refreshChatZone() {
+        List<ZoneItem> items = new ArrayList<>();
+        if (chatHelper == null) {
+            items.add(new ZoneItem("Chat not available", null, null, ZoneItem.ActionType.NONE));
+        } else {
+            List<String> lines = chatHelper.getRecentLines(10);
+            if (lines.isEmpty()) {
+                items.add(new ZoneItem("No messages yet", null, null, ZoneItem.ActionType.NONE));
+            } else {
+                for (String line : lines) {
+                    items.add(new ZoneItem(line, null, null, ZoneItem.ActionType.NONE));
+                }
+            }
+        }
+        chatZone.updateItems(items);
     }
 
     private void refreshActionsZone() {

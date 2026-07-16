@@ -21,10 +21,10 @@ There is also an **Accessible Lobby Window** that lists all open games and playe
 - **Connect dialog** — field announcements, Tab navigation
 - **Lobby** — list all games, join, watch, create game/tournament, deck editor, chat
 - **New Game / New Tournament** — all settings announced, keyboard navigation
-- **Deck Editor** — search, add/remove cards, load/save, color/type/rarity filters
+- **Deck Editor** — search, add/remove cards, load/save, color/type/rarity filters, browse whole sets, paged results
 - **Sideboarding** — move cards, read counts, submit deck
 - **Draft** — navigate picks, read card details, time remaining
-- **Gameplay** — prompts, hand, battlefield, stack, targets, combat, mana pool
+- **Gameplay** — prompts, hand, battlefield, stack, targets, combat, mana pool, game chat
 - **Phase announcements** — turn changes, combat phase, second main phase
 - **All choice dialogs** — pick one, pick number, checkboxes, pile split, distribute
 - **Revealed cards** — scry, opponent reveals, targeting from card list

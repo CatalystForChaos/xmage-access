@@ -50,8 +50,8 @@ import java.util.UUID;
  *   Ctrl+2          - Click right button (Cancel/No)
  *   Ctrl+3          - Click special button
  *   Ctrl+Z          - Undo
- *   Ctrl+M          - Focus chat input (type and press Enter to send)
- *   Ctrl+Shift+M    - Read last 5 chat messages
+ *   Ctrl+M          - Focus the game chat input in the accessible window
+ *   Ctrl+Shift+M    - Read last 5 game chat messages
  */
 public class GamePanelHandler {
 
@@ -105,6 +105,9 @@ public class GamePanelHandler {
 
     public void setAccessibleWindow(AccessibleGameWindow window) {
         this.accessibleWindow = window;
+        if (window != null) {
+            window.setChatHelper(chatHelper);
+        }
     }
 
     public void attach() {
@@ -209,6 +212,9 @@ public class GamePanelHandler {
         if (userChatPanel != null) {
             chatHelper = new ChatAccessHelper(userChatPanel);
             chatHelper.attach();
+        }
+        if (accessibleWindow != null) {
+            accessibleWindow.setChatHelper(chatHelper);
         }
     }
 
@@ -762,7 +768,12 @@ public class GamePanelHandler {
     }
 
     private void focusChatInput() {
-        if (chatHelper != null) {
+        // Prefer the accessible game window's own chat bar: moving focus
+        // into XMage's input field fails when XMage's window isn't the
+        // focused window, which is the normal case for our users.
+        if (accessibleWindow != null && accessibleWindow.isDisplayable()) {
+            accessibleWindow.focusChatInput();
+        } else if (chatHelper != null) {
             chatHelper.focusInput();
         } else {
             speak("Chat not available.");

@@ -131,8 +131,8 @@ ACCESSIBLE GAME WINDOW
 -----------------------
 
 When a game starts, a second window called "XMage Accessible Game"
-opens automatically. This window has 8 zones you navigate with
-standard screen reader keys:
+opens automatically. This window has 12 zones you navigate with
+standard screen reader keys, plus a chat input bar at the bottom:
 
   Tab / Shift+Tab  = Move between zones
   Up / Down arrow  = Move between items within a zone
@@ -178,12 +178,31 @@ The zones (in Tab order):
      Exiled cards, grouped by exile zone.
      Press D to read full card details.
 
-  8. Game Log
+  8. Command Zone
+     Commanders, emblems and other command zone objects.
+     Press Enter on your commander to cast it.
+
+  9. Revealed Cards
+     Cards currently revealed or looked at (scry, reveals).
+     Press Enter to select one when prompted.
+
+  10. Mana Pool
+     Your floating mana. Press Enter to spend a mana type.
+
+  11. Game Log
      The last 20 lines of game activity.
      Use arrow keys to read through recent events.
      No action on Enter (informational only).
 
-All zones update automatically every half second.
+  12. Chat
+     The last 10 game chat messages from the players.
+     Incoming player messages are also announced automatically.
+
+Below the zones is the "Send Game Chat Message" input bar:
+type a message and press Enter to send it to the game chat
+(the chat your opponent sees). Ctrl+M jumps straight to it.
+
+All zones update automatically.
 
 
 KEYBOARD SHORTCUTS (ORIGINAL)
@@ -228,6 +247,10 @@ Game log:
   Ctrl+L            Read last 3 game log entries
   Ctrl+Shift+L      Read last 10 game log entries
 
+Game chat:
+  Ctrl+M            Focus the game chat input in the accessible window
+  Ctrl+Shift+M      Read the last 5 game chat messages
+
 
 BEFORE THE GAME (LOBBY)
 ------------------------
@@ -257,6 +280,12 @@ Navigation:
   Enter             Add card (in results) or remove card (in deck/sideboard)
   D                 Read detailed card text for selected card
   Escape            Return focus to main XMage window
+
+Search results are shown 100 per page. With more results, the list
+starts with a "Previous page" entry and ends with a "Next page"
+entry — press Enter on them to move between pages. The announcement
+tells you which results you are looking at (e.g. "Results 101 to
+200 of 543").
 
 File operations:
   Ctrl+N            New deck (clear current)
@@ -299,6 +328,9 @@ Rarity filters:
   Ctrl+F6           Special
 
 Expansion set:
+  Ctrl+E            Browse a set: type part of its name, then all
+                    cards of that set are listed (page through them
+                    with the next/previous page entries)
   Ctrl+T            Next expansion set
   Ctrl+Shift+T      Previous expansion set
 
