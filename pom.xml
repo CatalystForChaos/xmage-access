@@ -37,6 +37,21 @@
         </dependency>
     </dependencies>
 
+    <profiles>
+        <!-- javac 9+ can link against the real Java 8 API; source/target alone
+             would happily compile calls to APIs that don't exist on Java 8,
+             which XMage still runs on. Keeps plain JDK 8 builds working. -->
+        <profile>
+            <id>jdk9plus</id>
+            <activation>
+                <jdk>[9,)</jdk>
+            </activation>
+            <properties>
+                <maven.compiler.release>8</maven.compiler.release>
+            </properties>
+        </profile>
+    </profiles>
+
     <build>
         <plugins>
             <plugin>
