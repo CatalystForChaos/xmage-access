@@ -87,7 +87,6 @@ public class AccessibleDeckEditorWindow extends JFrame {
     private JToggleButton tbCommon, tbUncommon, tbRare, tbMythic, tbSpecial;
     private JComboBox<?> cbExpansionSet;
     private JCheckBox chkNames, chkTypes, chkRules, chkUnique;
-    private JButton jButtonClean;
 
     // Legality panel
     private Object deckLegalityDisplay;
@@ -95,6 +94,9 @@ public class AccessibleDeckEditorWindow extends JFrame {
     private Timer pollTimer;
 
     private static final int PAGE_SIZE = 100;
+
+    /** XMage's entry for "no set restriction" (ConstructedFormats.ALL_SETS). */
+    private static final String ALL_SETS = "- All Sets";
 
     // Track previous counts to skip unnecessary refreshes
     private int _lastSearchResultCount = -1;
@@ -258,7 +260,6 @@ public class AccessibleDeckEditorWindow extends JFrame {
             chkTypes = findFieldTyped(cardSelector, "chkTypes", JCheckBox.class);
             chkRules = findFieldTyped(cardSelector, "chkRules", JCheckBox.class);
             chkUnique = findFieldTyped(cardSelector, "chkUnique", JCheckBox.class);
-            jButtonClean = findFieldTyped(cardSelector, "jButtonClean", JButton.class);
         }
 
         System.out.println("[XMage Access] Deck editor window - cardSelector: " + (cardSelector != null)
@@ -394,7 +395,7 @@ public class AccessibleDeckEditorWindow extends JFrame {
             public void actionPerformed(ActionEvent e) { readActiveFilters(); }
         });
 
-        // Ctrl+Shift+F = Clear all filters
+        // Ctrl+Shift+F = Reset all filters to "no restriction"
         windowInput.put(KeyStroke.getKeyStroke(KeyEvent.VK_F, KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK), "clearFilters");
         windowAction.put("clearFilters", new AbstractAction() {
             @Override
@@ -655,6 +656,15 @@ public class AccessibleDeckEditorWindow extends JFrame {
         }
         if (matchIndex < 0) {
             speak("Set " + setName + " not found.");
+            return;
+        }
+
+        // "- All Sets" is not a set to browse: with no set and no search term
+        // XMage would pull every printing in the database. Drop the
+        // restriction and let the user search from there.
+        if (isAllSetsEntry(setName)) {
+            selectAllSets();
+            speak("Set restriction removed. Search to see cards.");
             return;
         }
 
@@ -1115,7 +1125,7 @@ public class AccessibleDeckEditorWindow extends JFrame {
         sb.append("Types: Ctrl+Shift+1 creatures, 2 instants, 3 sorceries, 4 enchantments, 5 artifacts, 6 planeswalkers, 7 lands. ");
         sb.append("Rarity: Ctrl+F2 common, F3 uncommon, F4 rare, F5 mythic, F6 special. ");
         sb.append("Sets: Ctrl+E choose a set from a list and show all its cards, Ctrl+T next set, Ctrl+Shift+T previous set. ");
-        sb.append("Ctrl+F read filters, Ctrl+Shift+F clear filters, Ctrl+Shift+C cycle search mode. ");
+        sb.append("Ctrl+F read filters, Ctrl+Shift+F reset filters, Ctrl+Shift+C cycle search mode. ");
         sb.append("Tab between zones, Enter to add or remove, D for detail, Ctrl+Enter submit. ");
         sb.append("Results show " + PAGE_SIZE + " per page; use the next and previous page entries at the list edges.");
 
@@ -1124,15 +1134,128 @@ public class AccessibleDeckEditorWindow extends JFrame {
 
     // ========== FILTERS AND LEGALITY ==========
 
+    /** Colours, then types, then rarities — XMage's own three filter groups. */
+    private JToggleButton[] allFilterToggles() {
+        return new JToggleButton[]{
+                tbWhite, tbBlue, tbBlack, tbRed, tbGreen, tbColorless,
+                tbCreatures, tbInstants, tbSorceries, tbEnchantments,
+                tbArifiacts, tbPlaneswalkers, tbLand,
+                tbCommon, tbUncommon, tbRare, tbMythic, tbSpecial,
+        };
+    }
+
+    /**
+     * Delivers an ActionEvent with <em>no</em> modifiers to a button's own
+     * listeners, which is what a plain mouse click would produce.
+     *
+     * <p>{@code doClick()} cannot be used from our shortcuts. It ends in
+     * {@code DefaultButtonModel.setPressed}, which copies the modifier keys
+     * off whatever AWT event is currently being dispatched — and ours is
+     * always a Ctrl-modified KeyEvent. CardSelector then sees a Ctrl+click,
+     * whose documented meaning is "only select all the other colours/types/
+     * rarities" (see the toolbar tooltips): the announced filter is turned
+     * off, its five or six siblings are turned on, and the result set widens
+     * instead of narrowing.
+     */
+    static void fireUnmodified(AbstractButton button) {
+        ActionEvent event = new ActionEvent(button, ActionEvent.ACTION_PERFORMED,
+                button.getActionCommand(), System.currentTimeMillis(), 0);
+        for (java.awt.event.ActionListener listener : button.getActionListeners()) {
+            listener.actionPerformed(event);
+        }
+    }
+
+    /**
+     * True when a search term or a chosen set bounds the result set.
+     *
+     * <p>With neither, XMage's {@code filterCards()} matches every printing in
+     * the card database — an unselected colour, type or rarity group means "do
+     * not restrict", not "exclude" — and builds a mock Card for each hit on the
+     * EDT. That is a multi-second freeze and hundreds of megabytes, so we hold
+     * the filter change until the user gives it something to work on.
+     */
+    private boolean isResultSetBounded() {
+        if (xmageSearchField != null) {
+            String text = xmageSearchField.getText();
+            if (text != null && !text.trim().isEmpty()) return true;
+        }
+        if (cbExpansionSet != null) {
+            // Anything other than "- All Sets" restricts the query: a single
+            // set, or XMage's synthetic "Multiple sets selected" entry.
+            Object selected = cbExpansionSet.getSelectedItem();
+            if (selected != null && !isAllSetsEntry(selected)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Re-runs XMage's filter exactly once, if doing so is affordable.
+     * Returns what to append to the spoken confirmation.
+     */
+    private String applyFilters() {
+        _lastSearchResultCount = -1; // force the results zone to rebuild
+        if (!isResultSetBounded()) {
+            return " Saved. Search or choose a set to apply it.";
+        }
+        // Every filter button's listener ends in filterCards(); firing one
+        // without modifiers refreshes the results without changing any state.
+        for (JToggleButton button : allFilterToggles()) {
+            if (button != null) {
+                fireUnmodified(button);
+                return "";
+            }
+        }
+        if (xmageSearchButton != null) xmageSearchButton.doClick();
+        return "";
+    }
+
     private void toggleFilter(JToggleButton button, String name) {
         if (button == null) {
             speak(name + " filter not available.");
             return;
         }
-        button.doClick();
-        boolean selected = button.isSelected();
-        speak(name + (selected ? " on." : " off."));
-        _lastSearchResultCount = -1; // Force search results refresh
+        boolean selected = !button.isSelected();
+        button.setSelected(selected); // does not notify XMage on its own
+        speak(name + (selected ? " on." : " off.") + applyFilters());
+    }
+
+    private boolean isAllSetsEntry(Object item) {
+        return item != null && ALL_SETS.equals(item.toString());
+    }
+
+    /**
+     * Drops the set restriction without letting the expansion combo's listener
+     * run, because that listener ends in {@code filterCards()} — and with no
+     * set and no search term that walks the whole card database.
+     *
+     * <p>The one side effect of the listener we do need is reproduced here:
+     * clearing the multi-set checkbox list, which {@code getFilteredSets()}
+     * consults whenever more than one set is checked.
+     */
+    private void selectAllSets() {
+        if (cbExpansionSet == null || cbExpansionSet.getItemCount() == 0) return;
+
+        int allSetsIndex = 0;
+        for (int i = 0; i < cbExpansionSet.getItemCount(); i++) {
+            if (isAllSetsEntry(cbExpansionSet.getItemAt(i))) {
+                allSetsIndex = i;
+                break;
+            }
+        }
+
+        java.awt.event.ActionListener[] listeners = cbExpansionSet.getActionListeners();
+        for (java.awt.event.ActionListener listener : listeners) {
+            cbExpansionSet.removeActionListener(listener);
+        }
+        try {
+            cbExpansionSet.setSelectedIndex(allSetsIndex);
+        } finally {
+            for (java.awt.event.ActionListener listener : listeners) {
+                cbExpansionSet.addActionListener(listener);
+            }
+        }
+
+        callMethod(findFieldDeep(cardSelector, "listCodeSelected"), "uncheckAll");
     }
 
     private void readActiveFilters() {
@@ -1207,37 +1330,30 @@ public class AccessibleDeckEditorWindow extends JFrame {
         speak(sb.toString());
     }
 
+    /**
+     * Puts every filter back to XMage's own default, which is all of them
+     * selected — for colours, types and rarities alike, "all on" is what means
+     * "do not restrict".
+     *
+     * <p>The states are set silently and the filter runs at most once at the
+     * end. The previous version clicked each of the eighteen buttons in turn,
+     * and every click ran a full {@code filterCards()} pass on the EDT while
+     * the Ctrl-click reading (see {@link #fireUnmodified}) kept re-selecting
+     * the buttons the loop had just cleared — eighteen near-whole-database
+     * queries that took the client down.
+     *
+     * <p>The search term is deliberately left alone: it is not a filter, and
+     * keeping it means the reset can be applied right away instead of leaving
+     * the user with an unbounded query.
+     */
     private void clearAllFilters() {
-        // Deselect all color filters
-        JToggleButton[] colorButtons = {tbWhite, tbBlue, tbBlack, tbRed, tbGreen, tbColorless};
-        for (JToggleButton btn : colorButtons) {
-            if (btn != null && btn.isSelected()) btn.doClick();
+        for (JToggleButton button : allFilterToggles()) {
+            if (button != null) button.setSelected(true);
         }
 
-        // Deselect all type filters
-        JToggleButton[] typeButtons = {tbCreatures, tbInstants, tbSorceries, tbEnchantments, tbArifiacts, tbPlaneswalkers, tbLand};
-        for (JToggleButton btn : typeButtons) {
-            if (btn != null && btn.isSelected()) btn.doClick();
-        }
+        selectAllSets();
 
-        // Deselect all rarity filters
-        JToggleButton[] rarityButtons = {tbCommon, tbUncommon, tbRare, tbMythic, tbSpecial};
-        for (JToggleButton btn : rarityButtons) {
-            if (btn != null && btn.isSelected()) btn.doClick();
-        }
-
-        // Reset expansion set to first item (All Sets)
-        if (cbExpansionSet != null && cbExpansionSet.getItemCount() > 0) {
-            cbExpansionSet.setSelectedIndex(0);
-        }
-
-        // Click clean button to reset search text
-        if (jButtonClean != null) {
-            jButtonClean.doClick();
-        }
-
-        _lastSearchResultCount = -1;
-        speak("All filters cleared.");
+        speak("All filters reset." + applyFilters());
     }
 
     private void cycleExpansionSet(int direction) {
@@ -1247,7 +1363,19 @@ public class AccessibleDeckEditorWindow extends JFrame {
         }
         int current = cbExpansionSet.getSelectedIndex();
         int count = cbExpansionSet.getItemCount();
-        int next = (current + direction + count) % count;
+
+        // Step over "- All Sets": landing there drops the only bound on the
+        // query and makes XMage load the entire card database. Ctrl+Shift+F
+        // is the way to remove the set restriction on purpose.
+        int next = current;
+        for (int step = 0; step < count; step++) {
+            next = (next + direction + count) % count;
+            if (!isAllSetsEntry(cbExpansionSet.getItemAt(next))) break;
+        }
+        if (next == current || isAllSetsEntry(cbExpansionSet.getItemAt(next))) {
+            speak("No other set available.");
+            return;
+        }
         cbExpansionSet.setSelectedIndex(next);
 
         Object selected = cbExpansionSet.getSelectedItem();

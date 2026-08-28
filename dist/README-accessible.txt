@@ -404,7 +404,12 @@ Expansion set:
 
 Filter management:
   Ctrl+F            Read active filters
-  Ctrl+Shift+F      Clear all filters
+  Ctrl+Shift+F      Reset all filters and the set back to unrestricted
+
+  A filter takes effect straight away while a search term or a set is
+  active. With neither, it is only remembered - applying it would make
+  XMage load every card it knows, which takes seconds and a lot of
+  memory. Search or pick a set, and the filters are applied to that.
   Ctrl+Shift+C      Cycle search mode (names, types, rules text, all)
 
 Note: In Commander format, the commander card goes in the sideboard zone.
