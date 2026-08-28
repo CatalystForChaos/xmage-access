@@ -8,6 +8,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Supported screen readers:** NVDA, JAWS, Windows SAPI (Windows); VoiceOver (macOS); speech-dispatcher (Linux).
 
+## Working rules
+
+These are binding, not preferences.
+
+1. **Never modify XMage.** The XMage sources are read-only reference material. Every fix and feature lives in the agent, even when patching XMage would be easier — the agent has to keep working against stock XMage installs. The deck editor filter fix (`fireUnmodified`) is what this constraint looks like in practice.
+2. **Invent nothing.** Every claim about XMage's behaviour must be traceable to its source, its bytecode, or a documented API, and named in the code or commit message where it matters. When something cannot be checked, say so instead of assuming. Field names, method signatures, enum constants and magic strings get verified before shipping — see *Verifying against XMage* below.
+3. **Document for the next session.** Work is written down so it can be picked up cold: commit messages carry the reasoning, `DEVLOG.md` carries the current state and what is deliberately left undone, and `CLAUDE.md` carries anything durable. Nothing important should live only in a chat log.
+
+### Verifying against XMage
+
+Two levels, both cheap:
+
+- **Source:** the full XMage tree (magefree/mage) is checked out at `../mage`. Grep it for every field name a handler looks up and every class name `UIWatcher` matches on.
+- **Installed client:** the source tree is `master`; users run a release. Check names against the actual JARs before shipping:
+
+```sh
+CP=$(ls <xmage>/mage-client/lib/*.jar | tr '\n' ';')
+javap -p -classpath "$CP" mage.client.deckeditor.CardSelector
+javap -p -constants -classpath "$CP" mage.client.util.sets.ConstructedFormats   # string literals
+```
+
+Reflection logic itself is testable without XMage at all: compile stub `mage.*` classes plus a harness in package `xmageaccess.ui` against the built JAR. See `harness/`.
+
 ## Build & Run
 
 - **Requirements:** Java 8 (JDK 1.8), Maven
@@ -101,4 +124,3 @@ All engine calls run on a single daemon background thread, so callers (EDT or ot
 - **Java 8 only:** Do not use Java 9+ language features or APIs.
 - **Swing threading:** Never touch Swing components off the EDT — use `SwingUtilities.invokeLater()`. Violations cause subtle, hard-to-reproduce bugs.
 - **Game state lifecycle:** Game state must fully reset between games in a match (best-of-three). `GamePanelHandler` tracks the game UUID (`lastGameId`) to detect the switch. Stale references to previous game panels have repeatedly caused crashes and wrong announcements (see git history — this is the most recurrent bug class alongside listener leaks).
-- **DEVLOG-deck-editor.md** is a stale stub; the deck editor work it describes shipped in `AccessibleDeckEditorWindow.java`.
