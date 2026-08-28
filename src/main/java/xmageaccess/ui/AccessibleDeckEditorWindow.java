@@ -1166,15 +1166,22 @@ public class AccessibleDeckEditorWindow extends JFrame {
     }
 
     /**
-     * True when a search term or a chosen set bounds the result set.
+     * True when there is a result list worth refreshing: a set is chosen, or a
+     * search term is in the box.
      *
-     * <p>With neither, XMage's {@code filterCards()} matches every printing in
-     * the card database — an unselected colour, type or rarity group means "do
-     * not restrict", not "exclude" — and builds a mock Card for each hit on the
-     * EDT. That is a multi-second freeze and hundreds of megabytes, so we hold
-     * the filter change until the user gives it something to work on.
+     * <p>Only the set actually narrows the database query. CardSelector puts
+     * colours, types, rarities and set codes into the criteria, but applies the
+     * search text afterwards in Java, through {@code CardTextPredicate}, over
+     * cards it has already materialised — so a search term costs the same pass
+     * as no search term at all.
+     *
+     * <p>What this check prevents is running that pass when nobody is looking
+     * at the results: with an empty search box and no set there is no result
+     * list on screen, and a filter change would otherwise walk every printing
+     * in the database (92,000 of them, 43,000 creatures) on the EDT, building a
+     * mock Card for each, to show the user nothing.
      */
-    private boolean isResultSetBounded() {
+    private boolean hasResultsToRefresh() {
         if (xmageSearchField != null) {
             String text = xmageSearchField.getText();
             if (text != null && !text.trim().isEmpty()) return true;
@@ -1194,7 +1201,7 @@ public class AccessibleDeckEditorWindow extends JFrame {
      */
     private String applyFilters() {
         _lastSearchResultCount = -1; // force the results zone to rebuild
-        if (!isResultSetBounded()) {
+        if (!hasResultsToRefresh()) {
             return " Saved. Search or choose a set to apply it.";
         }
         // Every filter button's listener ends in filterCards(); firing one
