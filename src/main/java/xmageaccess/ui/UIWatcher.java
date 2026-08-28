@@ -238,7 +238,9 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
                 || handler instanceof JoinTableDialogHandler
                 || handler instanceof AddLandDialogHandler
                 || handler instanceof ErrorDialogHandler
-                || handler instanceof FormDialogHandler;
+                || handler instanceof FormDialogHandler
+                || handler instanceof WhatsNewDialogHandler
+                || handler instanceof RandomPacksSelectorDialogHandler;
     }
 
     /**
@@ -265,7 +267,11 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
                     || handler instanceof AddLandDialogHandler
                     || handler instanceof JoinTableDialogHandler
                     || handler instanceof ErrorDialogHandler
-                    || handler instanceof FormDialogHandler) {
+                    || handler instanceof FormDialogHandler
+                    // Both are modal and both own Ctrl+R, Ctrl+C and the
+                    // arrow keys while they are up.
+                    || handler instanceof WhatsNewDialogHandler
+                    || handler instanceof RandomPacksSelectorDialogHandler) {
                 return true;
             }
             if (handler instanceof ShowCardsDialogHandler
@@ -482,6 +488,20 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
         if (className.equals("mage.client.dialog.ResetPasswordDialog")) {
             if (!attachedHandlers.containsKey(comp) && comp.isVisible()) {
                 attachResetPasswordDialog(comp);
+            }
+        }
+
+        // Detect WhatsNewDialog (news page, opens by itself at startup)
+        if (className.equals("mage.client.dialog.WhatsNewDialog")) {
+            if (!attachedHandlers.containsKey(comp) && comp.isVisible()) {
+                attachWhatsNewDialog(comp);
+            }
+        }
+
+        // Detect RandomPacksSelectorDialog (set pool for random-pack drafts)
+        if (className.equals("mage.client.dialog.RandomPacksSelectorDialog")) {
+            if (!attachedHandlers.containsKey(comp) && comp.isVisible()) {
+                attachRandomPacksSelectorDialog(comp);
             }
         }
 
@@ -809,6 +829,20 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
         attachedHandlers.put(dialog, handler);
     }
 
+    private void attachWhatsNewDialog(Component dialog) {
+        System.out.println("[XMage Access] What's new dialog detected.");
+        WhatsNewDialogHandler handler = new WhatsNewDialogHandler(dialog);
+        handler.attach();
+        attachedHandlers.put(dialog, handler);
+    }
+
+    private void attachRandomPacksSelectorDialog(Component dialog) {
+        System.out.println("[XMage Access] Random packs selector detected.");
+        RandomPacksSelectorDialogHandler handler = new RandomPacksSelectorDialogHandler(dialog);
+        handler.attach();
+        attachedHandlers.put(dialog, handler);
+    }
+
     /**
      * Called when a previously attached component is no longer visible.
      */
@@ -887,6 +921,10 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
             ((ErrorDialogHandler) handler).detach();
         } else if (handler instanceof FormDialogHandler) {
             ((FormDialogHandler) handler).detach();
+        } else if (handler instanceof WhatsNewDialogHandler) {
+            ((WhatsNewDialogHandler) handler).detach();
+        } else if (handler instanceof RandomPacksSelectorDialogHandler) {
+            ((RandomPacksSelectorDialogHandler) handler).detach();
         }
     }
 }

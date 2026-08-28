@@ -22,6 +22,16 @@ Committed since, unreleased:
   `FormDialogHandler`.
 - **Deck editor filter fix** — toggling a filter used to invert itself and could
   take the client down. See the commit for the mechanism; `harness/` pins it.
+- **What's new dialog** — the modal news page that opens by itself at startup.
+  Its content is a JavaFX WebView, invisible to a screen reader, so the client
+  just looked frozen. Now announced, read out of the WebView's own DOM line by
+  line (Ctrl+Down/Up), copyable (Ctrl+C), and openable in the system browser
+  (Ctrl+B), which is the better place to read it — links and all.
+- **Random packs selector** — the set pool for random, rich man and chaos
+  reshuffled drafts: several hundred checkboxes labelled with bare set codes,
+  in a heavyweight AWT panel. Now a spoken cursor (Ctrl+Up/Down, Ctrl+Space),
+  with Ctrl+F to find a set by name or code, since browsing a few hundred sets
+  one at a time is not a plan.
 
 **None of it has been tested in a running game yet.** The build is installed at
 `~/Downloads/mage/xmage/mage-client/lib/xmage-access-0.1.0.jar`, with the
@@ -32,8 +42,12 @@ v0.1.13 build kept beside it as `.v0.1.13.bak` for rollback.
 - Builds on JDK 8, class file version 52, loads under `-javaagent`.
 - Every field name, method signature, enum constant and string literal the new
   code depends on was checked against both the `../mage` source tree and the
-  installed **1.4.61** client JARs with `javap`.
-- `harness/` — reflection wiring (27 checks) and the filter defect, all passing.
+  installed **1.4.61** client JARs with `javap`. That includes the JavaFX
+  signatures the news dialog leans on, checked against the `javafx-*-11.0.2`
+  JARs the client ships.
+- `harness/` — four harnesses, 66 checks, all passing: game actions (27), the
+  deck editor filter defect (13), the news dialog's reading path (12) and the
+  pack selector's cursor (14).
 
 ## Known gaps, from the audit of the XMage client
 
@@ -43,8 +57,6 @@ attaches to. Deliberately not addressed yet:
 | Surface | Why it matters |
 |---|---|
 | Card Viewer (`deckeditor/collection/viewer/MageBook`) | Its own main-menu feature, drawn as images with hover buttons. No handler at all. Partly covered by the deck editor's set browsing. |
-| `WhatsNewDialog` | Opens automatically at startup (`MageFrame:390`). |
-| `RandomPacksSelectorDialog` | Blocks setting up a random-pack draft. |
 | `DeckImportClipboardDialog` / `DeckExportClipboardDialog` | Deck import/export via clipboard. |
 | `AboutDialog`, `FeedbackDialog`, `CardHintsHelperDialog`, `CustomOptionsDialog`, `CardInfoWindowDialog` | Minor. |
 

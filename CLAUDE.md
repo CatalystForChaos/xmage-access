@@ -70,7 +70,7 @@ src/main/java/xmageaccess/
 ├── launcher/AccessibleLauncher.java  # Toggle-checkbox launcher UI
 ├── speech/                     # SpeechEngine interface + per-OS implementations
 ├── util/                       # ReflectionUtils, TextUtils (shared helpers)
-└── ui/                         # ~30 files: UIWatcher + all handlers/windows
+└── ui/                         # ~40 files: UIWatcher + all handlers/windows
 ```
 
 Naming in `ui/`: `*Handler.java` attaches to an XMage panel, `*DialogHandler.java` to a dialog, `Accessible*Window.java` is a standalone accessible Swing window the agent creates. The largest and most central files are `GamePanelHandler.java` (gameplay shortcuts + polling), `AccessibleDeckEditorWindow.java`, and `AccessibleGameWindow.java`.
