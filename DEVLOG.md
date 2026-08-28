@@ -35,9 +35,16 @@ Committed since, unreleased:
 - **No agent shortcuts inside XMage's own window.** They were never used
   there — the work happens in the accessible windows — and swallowing keys
   there only took bindings away from XMage. `GamePanelHandler` and
-  `LobbyHandler` now gate on `UiUtils.isAgentWindowActive()`; the deck
-  editor's three shortcuts were already unreachable and are gone; dialog
+  `LobbyHandler` now gate on `UiUtils.isActiveWindow(theirOwnWindow)`; the
+  deck editor's three shortcuts were already unreachable and are gone; dialog
   handlers and `Ctrl+Q` are unaffected.
+- **Accessible draft and tournament windows.** The two surfaces that had no
+  window of their own, and therefore lost their keyboard entirely in the
+  change above. `AccessibleDraftWindow` is the booster and your pool as two
+  lists — Enter picks, through the same `sendCardPick` call XMage's own click
+  makes. `AccessibleTournamentWindow` is standings, matches and chat, with
+  Enter watching a match exactly when XMage's own action cell offers it.
+  Both bind their keys on their own root pane, so nothing global is involved.
 
 **None of it has been tested in a running game yet.** The build is installed at
 `~/Downloads/mage/xmage/mage-client/lib/xmage-access-0.1.0.jar`, with the
@@ -58,9 +65,10 @@ when it announces, not to hand the keys back.
   installed **1.4.61** client JARs with `javap`. That includes the JavaFX
   signatures the news dialog leans on, checked against the `javafx-*-11.0.2`
   JARs the client ships.
-- `harness/` — four harnesses, 66 checks, all passing: game actions (27), the
-  deck editor filter defect (13), the news dialog's reading path (12) and the
-  pack selector's cursor (14).
+- `harness/` — six harnesses, 92 checks, all passing: game actions (27), the
+  deck editor filter defect (13), the news dialog's reading path (12), the
+  pack selector's cursor (14), the draft window's pick (15) and the
+  tournament window's watch (11).
 
 ## Known gaps, from the audit of the XMage client
 
@@ -69,8 +77,6 @@ attaches to. Deliberately not addressed yet:
 
 | Surface | Why it matters |
 |---|---|
-| Draft panel | Announcements only since the shortcuts left XMage's window. Picking a card needs an accessible draft window, which does not exist yet. |
-| Tournament panel | Same: state and chat are announced, standings and "watch this match" are not reachable from the keyboard. |
 | Card Viewer (`deckeditor/collection/viewer/MageBook`) | Its own main-menu feature, drawn as images with hover buttons. No handler at all. Partly covered by the deck editor's set browsing. |
 | `DeckImportClipboardDialog` / `DeckExportClipboardDialog` | Deck import/export via clipboard. |
 | `AboutDialog`, `FeedbackDialog`, `CardHintsHelperDialog`, `CustomOptionsDialog`, `CardInfoWindowDialog` | Minor. |

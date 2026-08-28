@@ -17,6 +17,8 @@ public class ZoneItem {
         REMOVE_FROM_SIDEBOARD,
         MOVE_TO_SIDEBOARD,
         MOVE_TO_DECK,
+        PICK_CARD,
+        WATCH_MATCH,
         NEXT_PAGE,
         PREV_PAGE,
         NONE

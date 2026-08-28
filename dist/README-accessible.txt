@@ -121,8 +121,8 @@ HOW IT WORKS
 
 The mod adds two layers of accessibility:
 
-1. Accessible windows that open alongside XMage, for the game,
-   the lobby, the deck editor and sideboarding
+1. Accessible windows that open alongside XMage, for the game, the
+   lobby, the deck editor, sideboarding, drafts and tournaments
 2. Keyboard shortcuts inside those windows
 
 The shortcuts work while one of those windows is in front. XMage's
@@ -417,6 +417,53 @@ Filter management:
   Ctrl+Shift+C      Cycle search mode (names, types, rules text, all)
 
 Note: In Commander format, the commander card goes in the sideboard zone.
+
+
+DRAFT
+-----
+
+When a draft starts, a window called "XMage Accessible Draft" opens
+with two lists:
+
+  Booster      the cards in front of you this pick
+  Your Picks   everything you have taken so far
+
+  Tab/Shift+Tab     Switch between the two lists
+  Up/Down           Move through the cards
+  Enter             Pick the selected card (in the booster)
+  D                 Read the full card text
+  Ctrl+R            Read pack, pick number and time
+  Ctrl+T            Read the time remaining
+  Ctrl+F1           Read all shortcuts
+  Escape            Back to XMage's own window
+
+A new pack is announced as it arrives, with the first card in it.
+If Enter says "Not your pick yet", XMage is still settling the last
+one - wait a moment and press it again.
+
+
+TOURNAMENT
+----------
+
+A tournament opens a window called "XMage Accessible Tournament"
+with three lists and a chat box:
+
+  Standings    the players, with their scores
+  Matches      every match, its state and result
+  Chat         the last messages in the tournament chat
+
+  Tab/Shift+Tab     Move between the lists and the chat box
+  Up/Down           Move through a list
+  Enter             Watch the selected match (in Matches)
+  Ctrl+R            Read name, type and state
+  Ctrl+M            Jump to the chat box
+  Ctrl+F1           Read all shortcuts
+  Escape            Back to XMage's own window
+
+Only a match that is being played right now can be watched; those
+say "can be watched" when you arrow onto them. Incoming chat is read
+out as it arrives, and the state of the tournament is announced when
+it changes.
 
 
 TYPICAL GAME FLOW

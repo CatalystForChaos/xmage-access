@@ -686,9 +686,11 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
 
     private void attachDraftPanel(Component panel) {
         System.out.println("[XMage Access] Draft panel detected.");
-        DraftPanelHandler handler = new DraftPanelHandler(panel);
-        handler.attach();
-        attachedHandlers.put(panel, handler);
+        AccessibleDraftWindow window = new AccessibleDraftWindow(panel);
+        window.setVisible(true);
+        window.announceWelcome();
+        attachedHandlers.put(panel, window);
+        System.out.println("[XMage Access] Accessible draft window opened.");
     }
 
     private void attachPickChoiceDialog(Component dialog) {
@@ -749,9 +751,11 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
 
     private void attachTournamentPanel(Component panel) {
         System.out.println("[XMage Access] Tournament panel detected.");
-        TournamentPanelHandler handler = new TournamentPanelHandler(panel);
-        handler.attach();
-        attachedHandlers.put(panel, handler);
+        AccessibleTournamentWindow window = new AccessibleTournamentWindow(panel);
+        window.setVisible(true);
+        window.announceWelcome();
+        attachedHandlers.put(panel, window);
+        System.out.println("[XMage Access] Accessible tournament window opened.");
     }
 
     private void attachNewTournamentDialog(Component dialog) {
@@ -889,8 +893,12 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
                 window.stopPolling();
                 window.dispose();
             }
-        } else if (handler instanceof DraftPanelHandler) {
-            ((DraftPanelHandler) handler).detach();
+        } else if (handler instanceof AccessibleDraftWindow) {
+            ((AccessibleDraftWindow) handler).stopPolling();
+            ((AccessibleDraftWindow) handler).dispose();
+        } else if (handler instanceof AccessibleTournamentWindow) {
+            ((AccessibleTournamentWindow) handler).stopPolling();
+            ((AccessibleTournamentWindow) handler).dispose();
         } else if (handler instanceof PickChoiceDialogHandler) {
             ((PickChoiceDialogHandler) handler).detach();
         } else if (handler instanceof PickNumberDialogHandler) {
@@ -907,8 +915,6 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
             ((GameEndDialogHandler) handler).detach();
         } else if (handler instanceof ShowCardsDialogHandler) {
             ((ShowCardsDialogHandler) handler).detach();
-        } else if (handler instanceof TournamentPanelHandler) {
-            ((TournamentPanelHandler) handler).detach();
         } else if (handler instanceof NewTournamentDialogHandler) {
             ((NewTournamentDialogHandler) handler).detach();
         } else if (handler instanceof PreferencesDialogHandler) {

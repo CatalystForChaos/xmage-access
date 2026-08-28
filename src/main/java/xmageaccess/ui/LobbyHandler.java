@@ -36,6 +36,7 @@ public class LobbyHandler {
     private int currentGameIndex = -1;
     private KeyEventDispatcher keyDispatcher;
     private ChatAccessHelper chatHelper;
+    private AccessibleLobbyWindow accessibleWindow;
 
     // Column indices for the active games table (TablesTableModel)
     private static final int COL_MATCH_TYPE = 0;  // Icon: Match/Tourney
@@ -97,10 +98,12 @@ public class LobbyHandler {
 
     /**
      * Creates the accessible lobby window using the tables already discovered.
-     * Called by UIWatcher after attachSilent().
+     * Called by UIWatcher after attachSilent(). The reference is kept because
+     * the shortcuts below only answer while that window is the active one.
      */
     public AccessibleLobbyWindow createAccessibleWindow() {
-        return new AccessibleLobbyWindow(lobbyPanel, activeTable, playersTable, chatHelper);
+        accessibleWindow = new AccessibleLobbyWindow(lobbyPanel, activeTable, playersTable, chatHelper);
+        return accessibleWindow;
     }
 
     public void detach() {
@@ -176,8 +179,9 @@ public class LobbyHandler {
                     if (!isLobbyVisible()) return false;
                     // Only in the accessible lobby window. Inside XMage's own
                     // window these shortcuts went unused and only took keys
-                    // away from XMage.
-                    if (!UiUtils.isAgentWindowActive()) return false;
+                    // away from XMage, and the lobby panel stays visible
+                    // behind a draft or a game.
+                    if (!UiUtils.isActiveWindow(accessibleWindow)) return false;
                     // Don't intercept keys when deck editor or sideboarding window is open
                     if (AccessibleDeckEditorWindow.isAnyWindowVisible()) return false;
                     if (SideboardingHandler.isAnyWindowVisible()) return false;

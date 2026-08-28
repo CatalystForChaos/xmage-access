@@ -248,7 +248,7 @@ public class GamePanelHandler {
                     // Only in the accessible game window. Inside XMage's own
                     // window these shortcuts went unused and only took keys
                     // away from XMage.
-                    if (!UiUtils.isAgentWindowActive()) return false;
+                    if (!UiUtils.isActiveWindow(accessibleWindow)) return false;
                     // While a choice/prompt dialog is open, its handler owns the
                     // shortcuts (Ctrl+Enter, Ctrl+1/2/3, ...). This dispatcher was
                     // registered first and would otherwise consume them.

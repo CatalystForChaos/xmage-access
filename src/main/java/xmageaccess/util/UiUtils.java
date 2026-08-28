@@ -12,22 +12,23 @@ public final class UiUtils {
     private UiUtils() {}
 
     /**
-     * True while one of the agent's own windows is the active one. Every
-     * window the agent puts on screen — the accessible game, lobby, deck
-     * editor and sideboarding windows, the list and deck pickers — lives in
-     * the {@code xmageaccess} package, so the package name is the whole test.
+     * True while the given window is the active one, false if it is null.
      *
      * <p>The panel-level shortcuts hang off global KeyEventDispatchers, which
-     * see every keystroke in the process. This is what keeps them out of
-     * XMage's own window: there they were never used, and swallowing keys
-     * there only takes bindings away from XMage itself. Dialog handlers are
-     * deliberately not gated this way — most XMage dialogs are internal
-     * frames inside that same window, and their shortcuts are the only way
-     * in.
+     * see every keystroke in the process. This is what keeps each set where
+     * it belongs: inside XMage's own window they were never used and only
+     * took bindings away from XMage, and asking merely whether *some* agent
+     * window is active is not enough either — the lobby panel stays visible
+     * behind a draft, so the lobby's keys would otherwise answer inside the
+     * draft window. Each handler names its own window instead.
+     *
+     * <p>Dialog handlers are deliberately not gated this way: most XMage
+     * dialogs are internal frames inside XMage's window, and their shortcuts
+     * are the only way in.
      */
-    public static boolean isAgentWindowActive() {
-        Window active = KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
-        return active != null && active.getClass().getName().startsWith("xmageaccess.");
+    public static boolean isActiveWindow(Window window) {
+        if (window == null) return false;
+        return KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow() == window;
     }
 
     /**

@@ -18,7 +18,8 @@ OUT=/tmp/xmage-access-harness
 javac -cp target/xmage-access-0.1.0.jar -d "$OUT" \
   $(find harness/stubs harness/src -name '*.java')
 
-for h in GameActionsHarness FilterHarness WhatsNewHarness PacksSelectorHarness; do
+for h in GameActionsHarness FilterHarness WhatsNewHarness PacksSelectorHarness \
+         DraftWindowHarness TournamentWindowHarness; do
   java -cp "$OUT;target/xmage-access-0.1.0.jar" xmageaccess.ui.$h
 done
 ```
@@ -63,6 +64,21 @@ own `WHATS_NEW_PAGE` constant to `AppUtil.openUrlInSystemBrowser`, that Ctrl+C
 copies the page with its line breaks intact, that Ctrl+Enter reaches the
 dialog's Close button, and that a page which yielded nothing is reported as
 missing instead of copied as an empty string.
+
+**`DraftWindowHarness`** — the draft window's pick. It shows the booster is
+read by asking each card panel in the grid for its CardView, that the pool
+comes from the client's own CardsList rather than the nameless
+SimpleCardViews the server returns with a pick, that XMage's own
+`isAllowedToPick` really blocks one, that an allowed pick reaches
+`SessionHandler.sendCardPick` with the draft id, the card id and the
+hidden-card set, and that the panel's private picked-cards redraw runs
+afterwards — but not when the server refused.
+
+**`TournamentWindowHarness`** — the tournament window's watch. The matches
+model carries three columns past the five it shows; this pins that the rows
+are read from the model so those ids come along, that a match is offered for
+watching exactly when XMage's own action cell says "Watch", and that watching
+hands that row's table id to `SessionHandler.watchTournamentTable`.
 
 **`PacksSelectorHarness`** — the pack selector's cursor. It shows the
 checkboxes are reachable at all (they sit in a heavyweight `java.awt.Panel`
