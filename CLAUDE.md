@@ -91,7 +91,8 @@ All engine calls run on a single daemon background thread, so callers (EDT or ot
 
 ### UI handlers
 
-- Each XMage panel/dialog gets its own handler class in `ui/`, attached by `UIWatcher` when it detects the component (register detection there for new handlers)
+- Each XMage panel/dialog gets its own handler class in `ui/`, attached by `UIWatcher` when it detects the component (register detection there for new handlers). Plain "fill in fields, press a button" dialogs (registration, password reset) instead reuse `FormDialogHandler`, configured with a field-name → spoken-label map at the `UIWatcher` attach site
+- Actions XMage only exposes through the play area's right-click menu or through hotkeys it binds `WHEN_IN_FOCUSED_WINDOW` (the F3–F11 skips) go through `ui/GameActions.java`, which drives the static `SessionHandler.sendPlayerAction(PlayerAction, UUID, Object)` — the same path XMage's own popup menu uses
 - Handlers must remove their AWT `KeyEventDispatcher`s, stop their `Timer`s, and drop listeners when their panel closes — several past bugs were leaked listeners persisting across games
 - Global shortcuts live in `UIWatcher`; gameplay shortcuts in `GamePanelHandler`/`AccessibleGameWindow` (the javadoc atop `GamePanelHandler` lists them all). Always require a modifier (Ctrl/Alt) to avoid clashing with text input.
 

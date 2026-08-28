@@ -357,7 +357,7 @@ public class NewTableDialogHandler {
         }
 
         // Find the sample-decks directory
-        File sampleDecks = findSampleDecksDir();
+        File sampleDecks = AccessibleDeckPicker.findDeckDirectory();
         if (sampleDecks == null) {
             speak("Sample decks folder not found.");
             return;
@@ -393,21 +393,6 @@ public class NewTableDialogHandler {
     /**
      * Find the sample-decks directory relative to the XMage client install.
      */
-    private File findSampleDecksDir() {
-        // Try common locations
-        String userDir = System.getProperty("user.dir");
-        File[] candidates = {
-                new File(userDir, "sample-decks"),
-                new File(userDir, "../sample-decks"),
-                new File(userDir, "mage-client/sample-decks"),
-        };
-        for (File dir : candidates) {
-            if (dir.exists() && dir.isDirectory()) {
-                return dir;
-            }
-        }
-        return null;
-    }
 
     private boolean isDialogVisible() {
         return dialog != null && dialog.isVisible();

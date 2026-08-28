@@ -52,6 +52,22 @@ import java.util.UUID;
  *   Ctrl+Z          - Undo
  *   Ctrl+M          - Focus the game chat input in the accessible window
  *   Ctrl+Shift+M    - Read last 5 game chat messages
+ *   Ctrl+K          - Game actions menu (skips, mana, rollback, concede, ...)
+ *   Ctrl+Shift+F3   - Cancel all skip actions            (XMage F3)
+ *   Ctrl+Shift+F4   - Skip to next turn                  (XMage F4)
+ *   Ctrl+Shift+F5   - Skip to end of turn step           (XMage F5)
+ *   Ctrl+Shift+F6   - Skip everything until next turn    (XMage F6)
+ *   Ctrl+Shift+F7   - Skip to next main phase            (XMage F7)
+ *   Ctrl+Shift+F9   - Skip to your turn                  (XMage F9)
+ *   Ctrl+Shift+F10  - Skip until the stack resolves      (XMage F10)
+ *   Ctrl+Shift+F11  - Skip to end step before your turn  (XMage F11)
+ *   Ctrl+Shift+H    - Toggle hold priority
+ *
+ * XMage's own F3-F11 skip keys are bound WHEN_IN_FOCUSED_WINDOW on GamePanel,
+ * so they are dead while the accessible window has focus. Ctrl+Shift+F3 to F11
+ * mirror them one to one and work from either window; letters are avoided here
+ * because the deck editor window already binds Ctrl+Shift+E, N, F, T and C,
+ * and it is open during sideboarding while the game panel is still visible.
  */
 public class GamePanelHandler {
 
@@ -69,6 +85,7 @@ public class GamePanelHandler {
     private Object gameChatPanel;      // ChatPanelBasic for game log
     private Object userChatPanel;      // ChatPanelBasic for player chat
     private ChatAccessHelper chatHelper;
+    private final GameActions actions;
 
     // State tracking for change detection
     private String lastFeedbackText = "";
@@ -101,6 +118,7 @@ public class GamePanelHandler {
 
     public GamePanelHandler(Component gamePanel) {
         this.gamePanel = gamePanel;
+        this.actions = new GameActions(gamePanel);
     }
 
     public void setAccessibleWindow(AccessibleGameWindow window) {
@@ -252,6 +270,26 @@ public class GamePanelHandler {
                             case KeyEvent.VK_L: readGameLog(10); return true;
                             // Chat (read recent)
                             case KeyEvent.VK_M: readChat(); return true;
+                            // Skip actions, mirroring XMage's own F3-F11 one to
+                            // one — those are bound WHEN_IN_FOCUSED_WINDOW on
+                            // GamePanel and never fire from another window.
+                            case KeyEvent.VK_F3: skip("PASS_PRIORITY_CANCEL_ALL_ACTIONS",
+                                    "Skip actions cancelled."); return true;
+                            case KeyEvent.VK_F4: skip("PASS_PRIORITY_UNTIL_NEXT_TURN",
+                                    "Skipping to next turn."); return true;
+                            case KeyEvent.VK_F5: skip("PASS_PRIORITY_UNTIL_TURN_END_STEP",
+                                    "Skipping to end of turn step."); return true;
+                            case KeyEvent.VK_F6: skip("PASS_PRIORITY_UNTIL_NEXT_TURN_SKIP_STACK",
+                                    "Skipping everything until next turn."); return true;
+                            case KeyEvent.VK_F7: skip("PASS_PRIORITY_UNTIL_NEXT_MAIN_PHASE",
+                                    "Skipping to next main phase."); return true;
+                            case KeyEvent.VK_F9: skip("PASS_PRIORITY_UNTIL_MY_NEXT_TURN",
+                                    "Skipping to your turn."); return true;
+                            case KeyEvent.VK_F10: skip("PASS_PRIORITY_UNTIL_STACK_RESOLVED",
+                                    "Skipping until the stack resolves."); return true;
+                            case KeyEvent.VK_F11: skip("PASS_PRIORITY_UNTIL_END_STEP_BEFORE_MY_NEXT_TURN",
+                                    "Skipping to end step before your turn."); return true;
+                            case KeyEvent.VK_H: toggleHoldPriority(); return true;
                         }
                     }
 
@@ -286,6 +324,8 @@ public class GamePanelHandler {
                             case KeyEvent.VK_Z: clickButton("btnUndo", "linkUndo"); return true;
                             // Chat (focus input)
                             case KeyEvent.VK_M: focusChatInput(); return true;
+                            // Game actions menu
+                            case KeyEvent.VK_K: showGameActionsMenu(); return true;
                         }
                     }
                     return false;
@@ -1838,6 +1878,193 @@ public class GamePanelHandler {
     private String formatPhase(String phase) {
         if (phase == null) return "";
         return phase.replace("_", " ").toLowerCase();
+    }
+
+    // ---- game actions (skips, priority, mana, rollback, concede) ---------
+
+    /** Sends a skip/priority action and confirms it in one short phrase. */
+    private void skip(String action, String confirmation) {
+        if (actions.gameId() == null) {
+            speak("No active game.");
+            return;
+        }
+        speak(actions.send(action) ? confirmation : "Action not available.");
+    }
+
+    private void toggleHoldPriority() {
+        if (actions.gameId() == null) {
+            speak("No active game.");
+            return;
+        }
+        speak(actions.toggleHoldPriority()
+                ? "Holding priority." : "Hold priority off.");
+    }
+
+    private Window pickerOwner() {
+        if (accessibleWindow != null && accessibleWindow.isVisible()) return accessibleWindow;
+        return SwingUtilities.getWindowAncestor(gamePanel);
+    }
+
+    private static String onOff(boolean state) {
+        return state ? "on" : "off";
+    }
+
+    /**
+     * Every action XMage otherwise hides in the play area's right-click menu,
+     * as one browsable list. Toggle labels carry their current state so it is
+     * spoken while browsing.
+     */
+    private void showGameActionsMenu() {
+        if (actions.gameId() == null) {
+            speak("No active game.");
+            return;
+        }
+        // Called from the key dispatcher: let the current key event finish
+        // before a modal dialog starts its own event loop.
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                final Map<String, Runnable> entries = buildGameActions();
+                new AccessibleListPicker(pickerOwner(), "Game Actions", "game actions",
+                        new ArrayList<>(entries.keySet()), new java.util.function.Consumer<String>() {
+                            @Override
+                            public void accept(String label) {
+                                Runnable action = entries.get(label);
+                                if (action != null) action.run();
+                            }
+                        }).showPicker();
+            }
+        });
+    }
+
+    private Map<String, Runnable> buildGameActions() {
+        Map<String, Runnable> entries = new java.util.LinkedHashMap<>();
+
+        if (actions.isWatching()) {
+            entries.put("Stop watching this game", () -> confirm("stop watching", () -> {
+                if (actions.stopWatching()) speak("Stopped watching.");
+            }));
+            return entries;
+        }
+
+        entries.put("Skip to next turn",
+                () -> skip("PASS_PRIORITY_UNTIL_NEXT_TURN", "Skipping to next turn."));
+        entries.put("Skip to end of turn step",
+                () -> skip("PASS_PRIORITY_UNTIL_TURN_END_STEP", "Skipping to end of turn step."));
+        entries.put("Skip everything until next turn",
+                () -> skip("PASS_PRIORITY_UNTIL_NEXT_TURN_SKIP_STACK", "Skipping everything until next turn."));
+        entries.put("Skip to next main phase",
+                () -> skip("PASS_PRIORITY_UNTIL_NEXT_MAIN_PHASE", "Skipping to next main phase."));
+        entries.put("Skip to your turn",
+                () -> skip("PASS_PRIORITY_UNTIL_MY_NEXT_TURN", "Skipping to your turn."));
+        entries.put("Skip until the stack resolves",
+                () -> skip("PASS_PRIORITY_UNTIL_STACK_RESOLVED", "Skipping until the stack resolves."));
+        entries.put("Skip to end step before your turn",
+                () -> skip("PASS_PRIORITY_UNTIL_END_STEP_BEFORE_MY_NEXT_TURN", "Skipping to end step before your turn."));
+        entries.put("Cancel all skip actions",
+                () -> skip("PASS_PRIORITY_CANCEL_ALL_ACTIONS", "Skip actions cancelled."));
+
+        entries.put("Hold priority: " + onOff(actions.isHoldingPriority()),
+                this::toggleHoldPriority);
+        entries.put("Automatic mana payment: " + onOff(actions.isManaAutoPayment()),
+                () -> speak("Automatic mana payment "
+                        + onOff(actions.toggleManaAutoPayment()) + "."));
+        entries.put("Keep mana already in the pool: " + onOff(actions.isManaAutoPaymentRestricted()),
+                () -> speak("Keeping mana already in the pool "
+                        + onOff(actions.toggleManaAutoPaymentRestricted()) + "."));
+        entries.put("Use first mana ability when tapping lands: " + onOff(actions.isUseFirstManaAbility()),
+                () -> speak("Use first mana ability "
+                        + onOff(actions.toggleUseFirstManaAbility()) + "."));
+
+        entries.put("Reset auto answers: replacement effects", () -> {
+            if (actions.send("RESET_AUTO_SELECT_REPLACEMENT_EFFECTS")) {
+                speak("Replacement effect auto answers reset.");
+            }
+        });
+        entries.put("Reset auto answers: triggered ability order", () -> {
+            if (actions.send("TRIGGER_AUTO_ORDER_RESET_ALL")) {
+                speak("Triggered ability order auto answers reset.");
+            }
+        });
+        entries.put("Reset auto answers: yes and no requests", () -> {
+            if (actions.send("REQUEST_AUTO_ANSWER_RESET_ALL")) {
+                speak("Yes and no auto answers reset.");
+            }
+        });
+
+        entries.put("Rollback to start of current turn", () -> rollback(0, "current turn"));
+        entries.put("Rollback to start of previous turn", () -> rollback(1, "previous turn"));
+        entries.put("Rollback current turn and 2 turns before", () -> rollback(2, "2 turns back"));
+        entries.put("Rollback current turn and 3 turns before", () -> rollback(3, "3 turns back"));
+
+        entries.put("View a player's deck", () -> pickPlayer("View Deck", playerId -> {
+            if (actions.send("VIEW_LIMITED_DECK", playerId)) speak("Opening deck.");
+        }));
+        entries.put("View a player's sideboard", () -> pickPlayer("View Sideboard", playerId -> {
+            if (actions.send("VIEW_SIDEBOARD", playerId)) speak("Opening sideboard.");
+        }));
+
+        entries.put("Request permission to see hand cards",
+                () -> pickPlayer("Request Hand Cards", playerId -> {
+                    if (actions.send("REQUEST_PERMISSION_TO_SEE_HAND_CARDS", playerId)) {
+                        speak("Permission requested.");
+                    }
+                }));
+        entries.put("Allow hand card requests from others: " + onOff(actions.isAllowingHandRequests()),
+                () -> speak("Hand card requests "
+                        + onOff(actions.toggleHandRequestsAllowed()) + "."));
+        entries.put("Revoke all permissions to see your hand cards", () -> {
+            if (actions.send("REVOKE_PERMISSIONS_TO_SEE_HAND_CARDS")) {
+                speak("Permissions revoked.");
+            }
+        });
+
+        entries.put("Concede this game", () -> confirm("concede this game", () -> {
+            if (actions.concedeGame()) speak("Conceding.");
+        }));
+        entries.put("Concede the whole match", () -> confirm("concede the whole match", () -> {
+            if (actions.concedeMatch()) speak("Leaving the match.");
+        }));
+
+        return entries;
+    }
+
+    private void rollback(int turns, String description) {
+        if (actions.send("ROLLBACK_TURNS", turns)) {
+            speak("Rollback requested: " + description + ".");
+        }
+    }
+
+    /** Two-item picker guarding anything irreversible. */
+    private void confirm(String actionPhrase, Runnable onYes) {
+        List<String> options = new ArrayList<>();
+        final String yes = "Yes, " + actionPhrase;
+        options.add(yes);
+        options.add("No, cancel");
+        new AccessibleListPicker(pickerOwner(), "Confirm", "options", options, choice -> {
+            if (yes.equals(choice)) {
+                onYes.run();
+            } else {
+                speak("Cancelled.");
+            }
+        }).showPicker();
+    }
+
+    /** Picker over the players in the current game, by name. */
+    private void pickPlayer(String title, java.util.function.Consumer<UUID> onPick) {
+        Object gameView = getGameView();
+        Object playersObj = gameView != null ? callMethod(gameView, "getPlayers") : null;
+        final Map<String, UUID> byName = actions.playerIdsByName(
+                playersObj instanceof List ? (List<?>) playersObj : null);
+        if (byName.isEmpty()) {
+            speak("No players found.");
+            return;
+        }
+        new AccessibleListPicker(pickerOwner(), title, "players",
+                new ArrayList<>(byName.keySet()), name -> {
+                    UUID id = byName.get(name);
+                    if (id != null) onPick.accept(id);
+                }).showPicker();
     }
 
     private void speak(String text) {

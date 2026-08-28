@@ -19,18 +19,22 @@ There is also an **Accessible Lobby Window** that lists all open games and playe
 ## What's Covered
 
 - **Connect dialog** — field announcements, Tab navigation
+- **Account** — register a new user, reset a forgotten password
 - **Lobby** — list all games, join, watch, create game/tournament, deck editor, chat
+- **Joining a table** — accessible deck choice and password entry
 - **New Game / New Tournament** — all settings announced, keyboard navigation
-- **Deck Editor** — search, add/remove cards, load/save, color/type/rarity filters, browse whole sets, paged results
+- **Deck Editor** — search, add/remove cards, load/save, color/type/rarity filters, browse whole sets, paged results, add basic lands
 - **Sideboarding** — move cards, read counts, submit deck
 - **Draft** — navigate picks, read card details, time remaining
 - **Gameplay** — prompts, hand, battlefield, stack, targets, combat, mana pool, game chat
+- **Game actions** — skip actions, hold priority, mana payment options, auto-answer resets, rollback, view a player's deck or sideboard, concede
 - **Phase announcements** — turn changes, combat phase, second main phase
 - **All choice dialogs** — pick one, pick number, checkboxes, pile split, distribute
 - **Revealed cards** — scry, opponent reveals, targeting from card list
 - **Tournament Panel** — standings, matches, watch
 - **Download Images** — source/set selection, progress
 - **Preferences** — tab navigation, read and understand all settings
+- **Errors** — client and server error dialogs are read out instead of appearing silently
 - **Global** — Ctrl+Q to quit
 
 ## Installation
@@ -73,6 +77,9 @@ No Tolk DLLs are needed on macOS — speech uses the built-in `say` command.
 | Ctrl+Enter | Play selected card |
 | Ctrl+1/2/3 | Click OK / Cancel / Special button |
 | Ctrl+Z | Undo |
+| Ctrl+Shift+F3…F11 | Skip actions — mirrors XMage's own F3…F11 |
+| Ctrl+Shift+H | Hold priority on/off |
+| Ctrl+K | Game actions menu (mana options, rollback, concede, view deck, …) |
 
 ### Lobby
 | Shortcut | Action |

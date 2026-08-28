@@ -251,6 +251,43 @@ Game chat:
   Ctrl+M            Focus the game chat input in the accessible window
   Ctrl+Shift+M      Read the last 5 game chat messages
 
+Skip actions (pass priority without answering every step):
+  Ctrl+Shift+F3     Cancel all skip actions
+  Ctrl+Shift+F4     Skip to next turn
+  Ctrl+Shift+F5     Skip to end of turn step
+  Ctrl+Shift+F6     Skip everything until next turn
+  Ctrl+Shift+F7     Skip to next main phase
+  Ctrl+Shift+F9     Skip to your turn
+  Ctrl+Shift+F10    Skip until the stack resolves
+  Ctrl+Shift+F11    Skip to end step before your turn
+  Ctrl+Shift+H      Hold priority on or off
+
+  These mirror XMage's own F3 to F11 one to one. XMage binds those
+  keys to its game window only, so they do nothing while you are in
+  the accessible window - the Ctrl+Shift versions work from either.
+
+Game actions menu:
+  Ctrl+K            Open a list of everything else XMage hides in the
+                    right-click menu of the play area:
+
+                      - all skip actions listed above
+                      - hold priority
+                      - automatic mana payment on or off
+                      - keep mana already in the pool
+                      - use first mana ability when tapping lands
+                      - reset auto answers (replacement effects,
+                        triggered ability order, yes/no requests)
+                      - roll back 1 to 3 turns
+                      - view a player's deck or sideboard
+                      - request, allow or revoke permission to see
+                        hand cards
+                      - concede the game or the whole match
+                      - stop watching (when spectating)
+
+                    Browse with Up and Down, type letters to filter,
+                    Enter chooses, Escape cancels. Conceding asks for
+                    confirmation first.
+
 
 BEFORE THE GAME (LOBBY)
 ------------------------
@@ -265,6 +302,26 @@ Lobby:
   Ctrl+Up/Down      Navigate games
   Ctrl+J            Join selected game
   Ctrl+N            Create new game
+
+Join table dialog (opens after Ctrl+J):
+  Ctrl+D            Choose a deck (accessible list, not a file dialog)
+  Ctrl+P            Focus the password field
+  Ctrl+R            Read what is currently selected
+  Ctrl+Enter        Join the table
+
+Register / reset password (from the connect dialog):
+  Tab through the fields, each one is announced with its value.
+  Ctrl+R            Read all fields at once
+  Ctrl+Enter        Register, or submit the new password
+  Ctrl+Shift+Enter  Email an auth token (password reset, step 1)
+
+Error messages:
+  When XMage reports a client or server error, the dialog is read
+  out automatically.
+  Ctrl+R            Read the first lines again
+  Ctrl+Shift+R      Read the full error text
+  Ctrl+C            Copy the error to the clipboard
+  Ctrl+Enter        Close
 
 
 DECK EDITOR
@@ -296,12 +353,21 @@ File operations:
 
 Deck tools:
   Ctrl+G            Generate random deck
-  Ctrl+A            Add lands dialog
+  Ctrl+A            Add basic lands (opens the dialog below)
   Ctrl+L            Check deck legality (reads format results)
   Ctrl+R            Read full deck summary (card counts by type)
   Ctrl+Shift+N      Set deck name
   Ctrl+Enter        Submit deck (during sideboarding)
   Ctrl+F1           Read all shortcuts
+
+Add lands dialog (Ctrl+A), needed to finish a draft or sealed deck:
+  Ctrl+Left/Right   Move between Forest, Island, Mountain, Plains,
+                    Swamp and deck size
+  Ctrl+Up/Down      Raise or lower the current count
+  Ctrl+S            Suggest lands (fills counts from your deck's colors)
+  Ctrl+E            Choose which set the lands come from
+  Ctrl+R            Read all counts
+  Ctrl+Enter        Add the lands
 
 Color filters (toggle search results by color):
   Ctrl+1            White

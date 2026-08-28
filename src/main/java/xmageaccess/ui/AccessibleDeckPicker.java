@@ -40,6 +40,25 @@ public class AccessibleDeckPicker {
         this.currentDir = startDir;
     }
 
+    /**
+     * The directory the picker should open in: XMage's sample-decks folder,
+     * wherever the client was started from. Returns null if none is found.
+     */
+    static File findDeckDirectory() {
+        String userDir = System.getProperty("user.dir");
+        File[] candidates = {
+                new File(userDir, "sample-decks"),
+                new File(userDir, "../sample-decks"),
+                new File(userDir, "mage-client/sample-decks"),
+        };
+        for (File dir : candidates) {
+            if (dir.exists() && dir.isDirectory()) {
+                return dir;
+            }
+        }
+        return null;
+    }
+
     public void show() {
         active = true;
         loadDirectory(currentDir);

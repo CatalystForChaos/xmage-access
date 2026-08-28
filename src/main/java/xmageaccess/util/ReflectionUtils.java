@@ -21,6 +21,12 @@ public final class ReflectionUtils {
     private static final ConcurrentHashMap<String, FieldResult> FIELD_SPECIFIC_CACHE = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, MethodResult> METHOD_NOARG_CACHE = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, MethodResult> METHOD_ARG_CACHE = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, ClassResult> CLASS_CACHE = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, MethodResult> METHOD_STATIC_CACHE = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, Object> ENUM_CACHE = new ConcurrentHashMap<>();
+
+    /** Stands in for "resolved to nothing" — ConcurrentHashMap rejects null values. */
+    private static final Object NO_VALUE = new Object();
 
     private ReflectionUtils() {}
 
@@ -150,6 +156,105 @@ public final class ReflectionUtils {
         }
     }
 
+    /** Invoke a method with an arbitrary parameter list. */
+    public static Object callMethodWithArgs(Object obj, String methodName,
+                                            Class<?>[] paramTypes, Object... args) {
+        if (obj == null) return null;
+        Class<?> clazz = obj.getClass();
+        StringBuilder key = new StringBuilder(clazz.getName()).append('#').append(methodName);
+        for (Class<?> p : paramTypes) key.append('/').append(p.getName());
+        String cacheKey = key.toString();
+
+        MethodResult cached = METHOD_ARG_CACHE.get(cacheKey);
+        if (cached == null) {
+            Method m = null;
+            try {
+                m = clazz.getMethod(methodName, paramTypes);
+            } catch (Exception ignored) {
+                // absent — cache negative
+            }
+            cached = new MethodResult(m);
+            METHOD_ARG_CACHE.put(cacheKey, cached);
+        }
+        if (cached.method == null) return null;
+        try {
+            return cached.method.invoke(obj, args);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** Look up a class by name. Negative results are cached like everything else. */
+    public static Class<?> findClass(String className) {
+        ClassResult cached = CLASS_CACHE.get(className);
+        if (cached == null) {
+            Class<?> c = null;
+            try {
+                c = Class.forName(className);
+            } catch (Throwable ignored) {
+                // absent — cache negative
+            }
+            cached = new ClassResult(c);
+            CLASS_CACHE.put(className, cached);
+        }
+        return cached.clazz;
+    }
+
+    /** Resolve a single enum constant, e.g. mage.constants.PlayerAction#CONCEDE. */
+    public static Object enumConstant(String enumClassName, String constant) {
+        String key = enumClassName + '#' + constant;
+        Object cached = ENUM_CACHE.get(key);
+        if (cached == null) {
+            Object resolved = NO_VALUE;
+            Class<?> clazz = findClass(enumClassName);
+            Object[] constants = clazz != null ? clazz.getEnumConstants() : null;
+            if (constants != null) {
+                for (Object candidate : constants) {
+                    if (constant.equals(((Enum<?>) candidate).name())) {
+                        resolved = candidate;
+                        break;
+                    }
+                }
+            }
+            ENUM_CACHE.put(key, resolved);
+            cached = resolved;
+        }
+        return cached == NO_VALUE ? null : cached;
+    }
+
+    /**
+     * Invoke a static method on a class named at runtime, ignoring its return
+     * value. Returns true only if the method was found and completed.
+     */
+    public static boolean callStaticVoid(String className, String methodName,
+                                         Class<?>[] paramTypes, Object... args) {
+        StringBuilder key = new StringBuilder(className).append('#').append(methodName);
+        for (Class<?> p : paramTypes) key.append('/').append(p.getName());
+        String cacheKey = key.toString();
+
+        MethodResult cached = METHOD_STATIC_CACHE.get(cacheKey);
+        if (cached == null) {
+            Method m = null;
+            Class<?> clazz = findClass(className);
+            if (clazz != null) {
+                try {
+                    m = clazz.getMethod(methodName, paramTypes);
+                } catch (Exception ignored) {
+                    // absent — cache negative
+                }
+            }
+            cached = new MethodResult(m);
+            METHOD_STATIC_CACHE.put(cacheKey, cached);
+        }
+        if (cached.method == null) return false;
+        try {
+            cached.method.invoke(null, args);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     private static Field walkAndFindField(Class<?> clazz, String name) {
         Class<?> c = clazz;
         while (c != null) {
@@ -174,5 +279,10 @@ public final class ReflectionUtils {
     private static final class MethodResult {
         final Method method;
         MethodResult(Method m) { method = m; }
+    }
+
+    private static final class ClassResult {
+        final Class<?> clazz;
+        ClassResult(Class<?> c) { clazz = c; }
     }
 }

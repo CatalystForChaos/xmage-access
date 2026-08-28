@@ -13,6 +13,7 @@ import java.awt.event.WindowEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.lang.reflect.Method;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -233,7 +234,11 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
                 || handler instanceof UserRequestDialogHandler
                 || handler instanceof GameEndDialogHandler
                 || handler instanceof ShowCardsDialogHandler
-                || handler instanceof PreferencesDialogHandler;
+                || handler instanceof PreferencesDialogHandler
+                || handler instanceof JoinTableDialogHandler
+                || handler instanceof AddLandDialogHandler
+                || handler instanceof ErrorDialogHandler
+                || handler instanceof FormDialogHandler;
     }
 
     /**
@@ -253,7 +258,14 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
                     || handler instanceof PickCheckBoxDialogHandler
                     || handler instanceof PickPileDialogHandler
                     || handler instanceof UserRequestDialogHandler
-                    || handler instanceof GameEndDialogHandler) {
+                    || handler instanceof GameEndDialogHandler
+                    // These own Ctrl+Enter, Ctrl+D and Ctrl+R while they are
+                    // open, and can appear with a game still running — the add
+                    // land dialog during sideboarding, an error at any time.
+                    || handler instanceof AddLandDialogHandler
+                    || handler instanceof JoinTableDialogHandler
+                    || handler instanceof ErrorDialogHandler
+                    || handler instanceof FormDialogHandler) {
                 return true;
             }
             if (handler instanceof ShowCardsDialogHandler
@@ -437,6 +449,39 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
         if (className.equals("mage.client.dialog.PreferencesDialog")) {
             if (!attachedHandlers.containsKey(comp) && comp.isVisible()) {
                 attachPreferencesDialog(comp);
+            }
+        }
+
+        // Detect JoinTableDialog (opens on every join to someone else's table)
+        if (className.equals("mage.client.dialog.JoinTableDialog")) {
+            if (!attachedHandlers.containsKey(comp) && comp.isVisible()) {
+                attachJoinTableDialog(comp);
+            }
+        }
+
+        // Detect AddLandDialog (basic lands for limited decks)
+        if (className.equals("mage.client.dialog.AddLandDialog")) {
+            if (!attachedHandlers.containsKey(comp) && comp.isVisible()) {
+                attachAddLandDialog(comp);
+            }
+        }
+
+        // Detect ErrorDialog (client and server errors)
+        if (className.equals("mage.client.dialog.ErrorDialog")) {
+            if (!attachedHandlers.containsKey(comp) && comp.isVisible()) {
+                attachErrorDialog(comp);
+            }
+        }
+
+        // Detect RegisterUserDialog / ResetPasswordDialog (account handling)
+        if (className.equals("mage.client.dialog.RegisterUserDialog")) {
+            if (!attachedHandlers.containsKey(comp) && comp.isVisible()) {
+                attachRegisterUserDialog(comp);
+            }
+        }
+        if (className.equals("mage.client.dialog.ResetPasswordDialog")) {
+            if (!attachedHandlers.containsKey(comp) && comp.isVisible()) {
+                attachResetPasswordDialog(comp);
             }
         }
 
@@ -703,6 +748,67 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
         attachedHandlers.put(dialog, handler);
     }
 
+    private void attachJoinTableDialog(Component dialog) {
+        System.out.println("[XMage Access] Join table dialog detected.");
+        JoinTableDialogHandler handler = new JoinTableDialogHandler(dialog);
+        handler.attach();
+        attachedHandlers.put(dialog, handler);
+    }
+
+    private void attachAddLandDialog(Component dialog) {
+        System.out.println("[XMage Access] Add land dialog detected.");
+        AddLandDialogHandler handler = new AddLandDialogHandler(dialog);
+        handler.attach();
+        attachedHandlers.put(dialog, handler);
+    }
+
+    private void attachErrorDialog(Component dialog) {
+        System.out.println("[XMage Access] Error dialog detected.");
+        ErrorDialogHandler handler = new ErrorDialogHandler(dialog);
+        handler.attach();
+        attachedHandlers.put(dialog, handler);
+    }
+
+    private void attachRegisterUserDialog(Component dialog) {
+        System.out.println("[XMage Access] Register user dialog detected.");
+        Map<String, String> labels = new LinkedHashMap<>();
+        labels.put("txtServer", "Server");
+        labels.put("txtPort", "Port");
+        labels.put("txtUserName", "User name");
+        labels.put("txtPassword", "Password");
+        labels.put("txtPasswordConfirmation", "Password confirmation");
+        labels.put("txtEmail", "Email, used for password reset and the initial password");
+        labels.put("btnRegister", "Register");
+        labels.put("btnCancel", "Cancel");
+
+        FormDialogHandler handler = new FormDialogHandler(dialog,
+                "Register a new user.", labels, "btnRegister", "register");
+        handler.attach();
+        attachedHandlers.put(dialog, handler);
+    }
+
+    private void attachResetPasswordDialog(Component dialog) {
+        System.out.println("[XMage Access] Reset password dialog detected.");
+        Map<String, String> labels = new LinkedHashMap<>();
+        labels.put("txtServer", "Server");
+        labels.put("txtPort", "Port");
+        labels.put("txtEmail", "Step 1, email address");
+        labels.put("btnGetAuthToken", "Email an auth token");
+        labels.put("txtAuthToken", "Step 2, auth token");
+        labels.put("txtPassword", "New password");
+        labels.put("txtPasswordConfirmation", "New password confirmation");
+        labels.put("btnSubmitNewPassword", "Submit the new password");
+        labels.put("btnCancel", "Cancel");
+
+        FormDialogHandler handler = new FormDialogHandler(dialog,
+                "Reset password. Step 1 sends a token to your email, "
+                        + "step 2 sets the new password.",
+                labels, "btnSubmitNewPassword", "submit the new password")
+                .withSecondaryAction("btnGetAuthToken", "email an auth token");
+        handler.attach();
+        attachedHandlers.put(dialog, handler);
+    }
+
     /**
      * Called when a previously attached component is no longer visible.
      */
@@ -773,6 +879,14 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
             ((NewTournamentDialogHandler) handler).detach();
         } else if (handler instanceof PreferencesDialogHandler) {
             ((PreferencesDialogHandler) handler).detach();
+        } else if (handler instanceof JoinTableDialogHandler) {
+            ((JoinTableDialogHandler) handler).detach();
+        } else if (handler instanceof AddLandDialogHandler) {
+            ((AddLandDialogHandler) handler).detach();
+        } else if (handler instanceof ErrorDialogHandler) {
+            ((ErrorDialogHandler) handler).detach();
+        } else if (handler instanceof FormDialogHandler) {
+            ((FormDialogHandler) handler).detach();
         }
     }
 }
