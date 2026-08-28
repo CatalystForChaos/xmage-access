@@ -2,6 +2,7 @@ package xmageaccess.ui;
 
 import xmageaccess.AccessibilityManager;
 import xmageaccess.speech.SpeechOutput;
+import xmageaccess.util.UiUtils;
 
 import javax.swing.*;
 import java.awt.*;
@@ -14,7 +15,7 @@ import java.lang.reflect.Method;
  * Accessibility handler for the XMage Lobby (TablesPanel).
  * Provides keyboard-driven navigation of game tables with speech output.
  *
- * Keyboard shortcuts (active when lobby is focused):
+ * Keyboard shortcuts (only while the accessible lobby window is active):
  *   Ctrl+G - List available games
  *   Ctrl+Up/Down - Navigate between games
  *   Ctrl+J - Join selected game
@@ -167,12 +168,16 @@ public class LobbyHandler {
     }
 
     private void addKeyboardNavigation() {
-        // Register globally via a key event dispatcher so the shortcuts
-        // work regardless of which component has focus.
+        // Registered globally so the shortcuts work regardless of which
+        // component inside the accessible lobby window has focus.
         keyDispatcher = e -> {
                     if (e.getID() != KeyEvent.KEY_PRESSED) return false;
                     if (!e.isControlDown()) return false;
                     if (!isLobbyVisible()) return false;
+                    // Only in the accessible lobby window. Inside XMage's own
+                    // window these shortcuts went unused and only took keys
+                    // away from XMage.
+                    if (!UiUtils.isAgentWindowActive()) return false;
                     // Don't intercept keys when deck editor or sideboarding window is open
                     if (AccessibleDeckEditorWindow.isAnyWindowVisible()) return false;
                     if (SideboardingHandler.isAnyWindowVisible()) return false;

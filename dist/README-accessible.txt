@@ -121,10 +121,14 @@ HOW IT WORKS
 
 The mod adds two layers of accessibility:
 
-1. Keyboard shortcuts (work anywhere in XMage)
-2. Accessible Game Window (opens automatically when a game starts)
+1. Accessible windows that open alongside XMage, for the game,
+   the lobby, the deck editor and sideboarding
+2. Keyboard shortcuts inside those windows
 
-Both work at the same time. Use whichever feels more natural.
+The shortcuts work while one of those windows is in front. XMage's
+own window keeps its own keyboard: the mod takes no keys there,
+apart from Ctrl+Q to quit and the shortcuts of the dialogs XMage
+opens, which have no accessible window of their own.
 
 
 ACCESSIBLE GAME WINDOW
@@ -205,11 +209,11 @@ type a message and press Enter to send it to the game chat
 All zones update automatically.
 
 
-KEYBOARD SHORTCUTS (ORIGINAL)
------------------------------
+KEYBOARD SHORTCUTS DURING A GAME
+--------------------------------
 
-These work anywhere when a game is active, even without
-the accessible window focused:
+These work while the accessible game window is in front, no
+matter which zone inside it has focus:
 
 Reading game state:
   Ctrl+F1           Read current prompt and phase

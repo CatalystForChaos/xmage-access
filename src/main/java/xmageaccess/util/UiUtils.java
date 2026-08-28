@@ -1,6 +1,7 @@
 package xmageaccess.util;
 
 import javax.swing.JFrame;
+import java.awt.KeyboardFocusManager;
 import java.awt.Window;
 
 /**
@@ -9,6 +10,25 @@ import java.awt.Window;
 public final class UiUtils {
 
     private UiUtils() {}
+
+    /**
+     * True while one of the agent's own windows is the active one. Every
+     * window the agent puts on screen — the accessible game, lobby, deck
+     * editor and sideboarding windows, the list and deck pickers — lives in
+     * the {@code xmageaccess} package, so the package name is the whole test.
+     *
+     * <p>The panel-level shortcuts hang off global KeyEventDispatchers, which
+     * see every keystroke in the process. This is what keeps them out of
+     * XMage's own window: there they were never used, and swallowing keys
+     * there only takes bindings away from XMage itself. Dialog handlers are
+     * deliberately not gated this way — most XMage dialogs are internal
+     * frames inside that same window, and their shortcuts are the only way
+     * in.
+     */
+    public static boolean isAgentWindowActive() {
+        Window active = KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
+        return active != null && active.getClass().getName().startsWith("xmageaccess.");
+    }
 
     /**
      * Brings the XMage main window to the front, preferring the real

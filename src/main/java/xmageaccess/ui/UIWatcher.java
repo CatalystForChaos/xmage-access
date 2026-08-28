@@ -603,7 +603,7 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
             System.out.println("[XMage Access] Sideboarding window opened.");
         } else {
             System.out.println("[XMage Access] Deck editor panel detected (mode: " + modeName + ").");
-            DeckEditorHandler handler = new DeckEditorHandler(panel);
+            DeckEditorHandler handler = new DeckEditorHandler();
             handler.attach();
             attachedHandlers.put(panel, handler);
 

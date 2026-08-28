@@ -2,6 +2,7 @@ package xmageaccess.ui;
 
 import xmageaccess.AccessibilityManager;
 import xmageaccess.speech.SpeechOutput;
+import xmageaccess.util.UiUtils;
 
 import static xmageaccess.util.CardText.formatCardDetailed;
 import static xmageaccess.util.ReflectionUtils.*;
@@ -63,11 +64,15 @@ import java.util.UUID;
  *   Ctrl+Shift+F11  - Skip to end step before your turn  (XMage F11)
  *   Ctrl+Shift+H    - Toggle hold priority
  *
+ * All of these fire only while one of the agent's own windows is active — in
+ * practice the accessible game window, which is where the game is played.
+ * Inside XMage's own window they do nothing, so its keyboard stays its own.
+ *
  * XMage's own F3-F11 skip keys are bound WHEN_IN_FOCUSED_WINDOW on GamePanel,
  * so they are dead while the accessible window has focus. Ctrl+Shift+F3 to F11
- * mirror them one to one and work from either window; letters are avoided here
- * because the deck editor window already binds Ctrl+Shift+E, N, F, T and C,
- * and it is open during sideboarding while the game panel is still visible.
+ * mirror them one to one; letters are avoided here because the deck editor
+ * window already binds Ctrl+Shift+E, N, F, T and C, and it is open during
+ * sideboarding while the game panel is still visible.
  */
 public class GamePanelHandler {
 
@@ -240,6 +245,10 @@ public class GamePanelHandler {
         keyDispatcher = e -> {
                     if (e.getID() != KeyEvent.KEY_PRESSED) return false;
                     if (!isGameVisible()) return false;
+                    // Only in the accessible game window. Inside XMage's own
+                    // window these shortcuts went unused and only took keys
+                    // away from XMage.
+                    if (!UiUtils.isAgentWindowActive()) return false;
                     // While a choice/prompt dialog is open, its handler owns the
                     // shortcuts (Ctrl+Enter, Ctrl+1/2/3, ...). This dispatcher was
                     // registered first and would otherwise consume them.

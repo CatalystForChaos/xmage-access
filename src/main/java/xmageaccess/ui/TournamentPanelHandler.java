@@ -7,35 +7,24 @@ import static xmageaccess.util.ReflectionUtils.*;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.KeyEvent;
 
 /**
  * Accessibility handler for the XMage Tournament Panel.
- * Provides keyboard-driven tournament navigation with speech output.
  *
- * Keyboard shortcuts:
- *   Ctrl+R           - Read tournament status (name, type, state, time)
- *   Ctrl+P           - Read player standings
- *   Ctrl+G           - Read match results
- *   Ctrl+Up/Down     - Navigate player standings
- *   Ctrl+Shift+Up/Down - Navigate match results
- *   Ctrl+M           - Focus chat input
- *   Ctrl+Shift+M     - Read recent chat
- *   Ctrl+W           - Watch selected match
- *   Escape           - Close tournament window
+ * <p>Announcements only. The tournament used to carry its own keyboard
+ * shortcuts (standings, match results, watch a match), but they worked solely
+ * inside XMage's own window, which is where the agent no longer takes keys —
+ * see {@code UiUtils.isAgentWindowActive}. Unlike the game, the lobby and the
+ * deck editor, the tournament has no accessible window to move them into, so
+ * what remains is the state polling and the tournament chat, which
+ * {@link ChatAccessHelper} reads out on its own as messages arrive.
  */
 public class TournamentPanelHandler {
 
     private final Component panel;
     private JTable tablePlayers;
-    private JTable tableMatches;
-    private JButton btnQuitTournament;
-    private JButton btnCloseWindow;
     private ChatAccessHelper chatHelper;
-    private int playerCursor = 0;
-    private int matchCursor = 0;
     private String lastState = "";
-    private KeyEventDispatcher keyDispatcher;
     private Timer pollTimer;
 
     public TournamentPanelHandler(Component panel) {
@@ -45,11 +34,10 @@ public class TournamentPanelHandler {
     public void attach() {
         try {
             discoverComponents();
-            addKeyboardShortcuts();
             startMonitoring();
             announceTournament();
         } catch (Exception e) {
-            System.err.println("[XMage Access] Error attaching to TournamentPanel: " + e.getMessage());
+            xmageaccess.util.Log.warn("Tournament", "attach failed", e);
         }
     }
 
@@ -57,11 +45,6 @@ public class TournamentPanelHandler {
         if (pollTimer != null) {
             pollTimer.stop();
             pollTimer = null;
-        }
-        if (keyDispatcher != null) {
-            KeyboardFocusManager.getCurrentKeyboardFocusManager()
-                    .removeKeyEventDispatcher(keyDispatcher);
-            keyDispatcher = null;
         }
         if (chatHelper != null) {
             chatHelper.detach();
@@ -71,11 +54,8 @@ public class TournamentPanelHandler {
 
     private void discoverComponents() {
         tablePlayers = findFieldTyped(panel, "tablePlayers", JTable.class);
-        tableMatches = findFieldTyped(panel, "tableMatches", JTable.class);
-        btnQuitTournament = findFieldTyped(panel, "btnQuitTournament", JButton.class);
-        btnCloseWindow = findFieldTyped(panel, "btnCloseWindow", JButton.class);
 
-        // Attach chat
+        // Attach chat — it announces incoming messages by itself
         Object chatPanel = findFieldDeep(panel, "chatPanel1");
         if (chatPanel != null) {
             chatHelper = new ChatAccessHelper(chatPanel);
@@ -83,7 +63,6 @@ public class TournamentPanelHandler {
         }
 
         System.out.println("[XMage Access] Tournament - players: " + (tablePlayers != null)
-                + ", matches: " + (tableMatches != null)
                 + ", chat: " + (chatHelper != null));
     }
 
@@ -95,7 +74,7 @@ public class TournamentPanelHandler {
             sb.append(tablePlayers.getRowCount()).append(" players. ");
         }
 
-        sb.append("Ctrl+R for status. Ctrl+P for standings. Ctrl+G for matches.");
+        sb.append("Announcements only — the tournament has no keyboard control yet.");
         speak(sb.toString());
     }
 
@@ -117,81 +96,7 @@ public class TournamentPanelHandler {
         pollTimer.start();
     }
 
-    private void addKeyboardShortcuts() {
-        keyDispatcher = e -> {
-                    if (e.getID() != KeyEvent.KEY_PRESSED) return false;
-                    if (!isPanelVisible()) return false;
-                    if (!e.isControlDown()) return false;
-
-                    // Ctrl+Shift shortcuts
-                    if (e.isShiftDown()) {
-                        switch (e.getKeyCode()) {
-                            case KeyEvent.VK_UP:
-                                navigateMatches(-1);
-                                return true;
-                            case KeyEvent.VK_DOWN:
-                                navigateMatches(1);
-                                return true;
-                            case KeyEvent.VK_M:
-                                if (chatHelper != null) chatHelper.readRecentChat(5);
-                                else speak("Chat not available.");
-                                return true;
-                        }
-                        return false;
-                    }
-
-                    // Ctrl (no shift) shortcuts
-                    switch (e.getKeyCode()) {
-                        case KeyEvent.VK_R:
-                            readFullStatus();
-                            return true;
-                        case KeyEvent.VK_P:
-                            readStandings();
-                            return true;
-                        case KeyEvent.VK_G:
-                            readMatches();
-                            return true;
-                        case KeyEvent.VK_UP:
-                            navigatePlayers(-1);
-                            return true;
-                        case KeyEvent.VK_DOWN:
-                            navigatePlayers(1);
-                            return true;
-                        case KeyEvent.VK_W:
-                            watchMatch();
-                            return true;
-                        case KeyEvent.VK_M:
-                            if (chatHelper != null) chatHelper.focusInput();
-                            else speak("Chat not available.");
-                            return true;
-                        case KeyEvent.VK_ESCAPE:
-                            if (btnCloseWindow != null) btnCloseWindow.doClick();
-                            return true;
-                    }
-                    return false;
-                };
-        KeyboardFocusManager.getCurrentKeyboardFocusManager()
-                .addKeyEventDispatcher(keyDispatcher);
-    }
-
     // ========== STATUS ==========
-
-    private void readFullStatus() {
-        StringBuilder sb = new StringBuilder("Tournament status. ");
-        sb.append(readStatus());
-
-        if (tablePlayers != null) {
-            sb.append(tablePlayers.getRowCount()).append(" players. ");
-        }
-        if (tableMatches != null && tableMatches.getRowCount() > 0) {
-            sb.append(tableMatches.getRowCount()).append(" matches. ");
-        }
-        if (btnQuitTournament != null && btnQuitTournament.isVisible()) {
-            sb.append("You are in this tournament. ");
-        }
-
-        speak(sb.toString());
-    }
 
     private String readStatus() {
         StringBuilder sb = new StringBuilder();
@@ -207,132 +112,6 @@ public class TournamentPanelHandler {
 
         return sb.toString();
     }
-
-    // ========== PLAYER STANDINGS ==========
-
-    private void readStandings() {
-        if (tablePlayers == null || tablePlayers.getRowCount() == 0) {
-            speak("No player standings.");
-            return;
-        }
-
-        int rows = tablePlayers.getRowCount();
-        StringBuilder sb = new StringBuilder(rows + " players. ");
-        for (int i = 0; i < Math.min(rows, 10); i++) {
-            sb.append(readPlayerRow(i)).append(". ");
-        }
-        if (rows > 10) sb.append("And ").append(rows - 10).append(" more.");
-        speak(sb.toString());
-    }
-
-    private void navigatePlayers(int direction) {
-        if (tablePlayers == null || tablePlayers.getRowCount() == 0) {
-            speak("No players.");
-            return;
-        }
-
-        playerCursor += direction;
-        int rows = tablePlayers.getRowCount();
-        if (playerCursor < 0) playerCursor = rows - 1;
-        if (playerCursor >= rows) playerCursor = 0;
-
-        speak((playerCursor + 1) + " of " + rows + ": " + readPlayerRow(playerCursor));
-    }
-
-    private String readPlayerRow(int row) {
-        if (tablePlayers == null) return "Unknown";
-        StringBuilder sb = new StringBuilder();
-        int cols = tablePlayers.getColumnCount();
-        for (int col = 0; col < cols; col++) {
-            Object val = tablePlayers.getValueAt(row, col);
-            if (val == null) continue;
-            // Skip icon columns
-            if (val instanceof Icon || val instanceof ImageIcon) continue;
-            String text = val.toString().trim();
-            if (!text.isEmpty()) {
-                String colName = tablePlayers.getColumnName(col);
-                if (colName != null && !colName.isEmpty()) {
-                    sb.append(colName).append(": ");
-                }
-                sb.append(text).append(", ");
-            }
-        }
-        return sb.length() > 0 ? sb.toString() : "Empty row";
-    }
-
-    // ========== MATCH RESULTS ==========
-
-    private void readMatches() {
-        if (tableMatches == null || tableMatches.getRowCount() == 0) {
-            speak("No matches.");
-            return;
-        }
-
-        int rows = tableMatches.getRowCount();
-        StringBuilder sb = new StringBuilder(rows + " matches. ");
-        for (int i = 0; i < Math.min(rows, 8); i++) {
-            sb.append(readMatchRow(i)).append(". ");
-        }
-        if (rows > 8) sb.append("And ").append(rows - 8).append(" more.");
-        speak(sb.toString());
-    }
-
-    private void navigateMatches(int direction) {
-        if (tableMatches == null || tableMatches.getRowCount() == 0) {
-            speak("No matches.");
-            return;
-        }
-
-        matchCursor += direction;
-        int rows = tableMatches.getRowCount();
-        if (matchCursor < 0) matchCursor = rows - 1;
-        if (matchCursor >= rows) matchCursor = 0;
-
-        speak("Match " + (matchCursor + 1) + " of " + rows + ": " + readMatchRow(matchCursor));
-    }
-
-    private String readMatchRow(int row) {
-        if (tableMatches == null) return "Unknown";
-        StringBuilder sb = new StringBuilder();
-        int cols = tableMatches.getColumnCount();
-        for (int col = 0; col < cols; col++) {
-            Object val = tableMatches.getValueAt(row, col);
-            if (val == null) continue;
-            if (val instanceof Icon || val instanceof ImageIcon) continue;
-            String text = val.toString().trim();
-            if (!text.isEmpty()) {
-                if (sb.length() > 0) sb.append(" vs ");
-                sb.append(text);
-            }
-        }
-        return sb.length() > 0 ? sb.toString() : "Empty match";
-    }
-
-    private void watchMatch() {
-        if (tableMatches == null || tableMatches.getRowCount() == 0) {
-            speak("No matches to watch.");
-            return;
-        }
-        if (matchCursor >= tableMatches.getRowCount()) matchCursor = 0;
-
-        // Try to click the action button in the last column
-        try {
-            int actionCol = tableMatches.getColumnCount() - 1;
-            Object val = tableMatches.getValueAt(matchCursor, actionCol);
-            if (val != null && val.toString().toLowerCase().contains("watch")) {
-                // Simulate click on the action cell
-                tableMatches.setRowSelectionInterval(matchCursor, matchCursor);
-                tableMatches.editCellAt(matchCursor, actionCol);
-                speak("Watching match.");
-            } else {
-                speak("This match cannot be watched. State: " + readMatchRow(matchCursor));
-            }
-        } catch (Exception e) {
-            speak("Could not watch match.");
-        }
-    }
-
-    // ========== HELPERS ==========
 
     private String readTextField(String fieldName) {
         try {

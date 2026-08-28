@@ -32,10 +32,23 @@ Committed since, unreleased:
   in a heavyweight AWT panel. Now a spoken cursor (Ctrl+Up/Down, Ctrl+Space),
   with Ctrl+F to find a set by name or code, since browsing a few hundred sets
   one at a time is not a plan.
+- **No agent shortcuts inside XMage's own window.** They were never used
+  there — the work happens in the accessible windows — and swallowing keys
+  there only took bindings away from XMage. `GamePanelHandler` and
+  `LobbyHandler` now gate on `UiUtils.isAgentWindowActive()`; the deck
+  editor's three shortcuts were already unreachable and are gone; dialog
+  handlers and `Ctrl+Q` are unaffected.
 
 **None of it has been tested in a running game yet.** The build is installed at
 `~/Downloads/mage/xmage/mage-client/lib/xmage-access-0.1.0.jar`, with the
 v0.1.13 build kept beside it as `.v0.1.13.bak` for rollback.
+
+One thing to watch in that test round, introduced by the shortcut change:
+whether focus actually lands in the accessible window when it opens. The lobby
+window is created while the connect dialog is still up, so after connecting
+the client window may well hold focus — and there the lobby shortcuts now do
+nothing. If that happens, the fix is for the agent to bring the window forward
+when it announces, not to hand the keys back.
 
 ## Verified so far
 
@@ -56,6 +69,8 @@ attaches to. Deliberately not addressed yet:
 
 | Surface | Why it matters |
 |---|---|
+| Draft panel | Announcements only since the shortcuts left XMage's window. Picking a card needs an accessible draft window, which does not exist yet. |
+| Tournament panel | Same: state and chat are announced, standings and "watch this match" are not reachable from the keyboard. |
 | Card Viewer (`deckeditor/collection/viewer/MageBook`) | Its own main-menu feature, drawn as images with hover buttons. No handler at all. Partly covered by the deck editor's set browsing. |
 | `DeckImportClipboardDialog` / `DeckExportClipboardDialog` | Deck import/export via clipboard. |
 | `AboutDialog`, `FeedbackDialog`, `CardHintsHelperDialog`, `CustomOptionsDialog`, `CardInfoWindowDialog` | Minor. |

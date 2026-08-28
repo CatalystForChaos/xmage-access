@@ -118,6 +118,7 @@ All engine calls run on a single daemon background thread, so callers (EDT or ot
 - Actions XMage only exposes through the play area's right-click menu or through hotkeys it binds `WHEN_IN_FOCUSED_WINDOW` (the F3–F11 skips) go through `ui/GameActions.java`, which drives the static `SessionHandler.sendPlayerAction(PlayerAction, UUID, Object)` — the same path XMage's own popup menu uses
 - Handlers must remove their AWT `KeyEventDispatcher`s, stop their `Timer`s, and drop listeners when their panel closes — several past bugs were leaked listeners persisting across games
 - Global shortcuts live in `UIWatcher`; gameplay shortcuts in `GamePanelHandler`/`AccessibleGameWindow` (the javadoc atop `GamePanelHandler` lists them all). Always require a modifier (Ctrl/Alt) to avoid clashing with text input.
+- **The agent takes no keys inside XMage's own window.** Panel-level handlers (`GamePanelHandler`, `LobbyHandler`) gate their dispatchers on `UiUtils.isAgentWindowActive()`, so their shortcuts fire only while one of the agent's own windows is active. Dialog handlers are deliberately exempt — most XMage dialogs are internal frames inside that same window, and their shortcuts are the only way in. The only other exception is `Ctrl+Q` (quit) in `UIWatcher`. A new panel-level shortcut belongs behind that gate, which in practice means the surface needs an accessible window first: the draft and tournament panels lost their shortcuts precisely because they have none.
 
 ## Gotchas
 

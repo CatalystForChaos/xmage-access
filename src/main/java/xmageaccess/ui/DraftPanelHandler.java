@@ -3,41 +3,32 @@ package xmageaccess.ui;
 import xmageaccess.AccessibilityManager;
 import xmageaccess.speech.SpeechOutput;
 
-import static xmageaccess.util.CardText.formatCardDetailed;
 import static xmageaccess.util.ReflectionUtils.*;
-import static xmageaccess.util.TextUtils.*;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.KeyEvent;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
-import java.util.UUID;
 
 /**
  * Accessibility handler for the XMage Draft Panel.
- * Provides keyboard-driven draft navigation with speech output.
  *
- * Keyboard shortcuts:
- *   Ctrl+Up/Down     - Navigate booster cards
- *   Ctrl+Enter       - Pick the current card
- *   Ctrl+D           - Read detailed card info
- *   Ctrl+R           - Re-read draft status (pack, pick, time, card count)
- *   Ctrl+F1          - Read all booster cards
- *   Ctrl+F2          - Read picked cards summary
- *   Ctrl+T           - Read time remaining
+ * <p>Announcements only. The draft used to carry its own keyboard shortcuts
+ * (navigate the booster, pick a card, read the picks), but they worked solely
+ * inside XMage's own window, which is where the agent no longer takes keys —
+ * see {@code UiUtils.isAgentWindowActive}. Unlike the game, the lobby and the
+ * deck editor, the draft has no accessible window to move them into, so for
+ * now this handler says what is happening and nothing more. Giving the draft
+ * a window of its own is the way to bring picking back.
  */
 public class DraftPanelHandler {
 
     private final Component draftPanel;
     private Component draftBooster;      // DraftGrid
-    private int cursorIndex = 0;
     private List<Object[]> boosterCards = new ArrayList<>(); // [MageCard, CardView]
     private Timer announceTimer;
     private int lastBoosterSize = -1;
-    private KeyEventDispatcher keyDispatcher;
 
     public DraftPanelHandler(Component draftPanel) {
         this.draftPanel = draftPanel;
@@ -46,23 +37,17 @@ public class DraftPanelHandler {
     public void attach() {
         try {
             discoverComponents();
-            addKeyboardShortcuts();
             startMonitoring();
             announceDraftStart();
         } catch (Exception e) {
-            System.err.println("[XMage Access] Error attaching to DraftPanel: " + e.getMessage());
-            e.printStackTrace();
+            xmageaccess.util.Log.warn("Draft", "attach failed", e);
         }
     }
 
     public void detach() {
         if (announceTimer != null) {
             announceTimer.stop();
-        }
-        if (keyDispatcher != null) {
-            KeyboardFocusManager.getCurrentKeyboardFocusManager()
-                    .removeKeyEventDispatcher(keyDispatcher);
-            keyDispatcher = null;
+            announceTimer = null;
         }
     }
 
@@ -81,8 +66,7 @@ public class DraftPanelHandler {
             sb.append(boosterCards.size()).append(" cards to pick from. ");
         }
 
-        sb.append("Ctrl+Up, Down to navigate cards. Ctrl+Enter to pick. ");
-        sb.append("Ctrl+D for card detail. Ctrl+T for time.");
+        sb.append("Announcements only — the draft has no keyboard control yet.");
         speak(sb.toString());
     }
 
@@ -95,7 +79,6 @@ public class DraftPanelHandler {
                 int currentSize = boosterCards.size();
                 if (currentSize != lastBoosterSize && currentSize > 0 && lastBoosterSize >= 0) {
                     // New booster arrived
-                    cursorIndex = 0;
                     String status = readDraftStatus();
                     speak("New pack. " + status + " " + currentSize + " cards. "
                             + "First: " + getCardName(0) + ".");
@@ -109,210 +92,7 @@ public class DraftPanelHandler {
         announceTimer.start();
     }
 
-    private void addKeyboardShortcuts() {
-        keyDispatcher = e -> {
-                    if (e.getID() != KeyEvent.KEY_PRESSED) return false;
-                    if (!isPanelVisible()) return false;
-                    if (!e.isControlDown()) return false;
-
-                    if (!e.isShiftDown()) {
-                        switch (e.getKeyCode()) {
-                            case KeyEvent.VK_UP:
-                                navigateBooster(-1);
-                                return true;
-                            case KeyEvent.VK_DOWN:
-                                navigateBooster(1);
-                                return true;
-                            case KeyEvent.VK_ENTER:
-                                pickCard();
-                                return true;
-                            case KeyEvent.VK_D:
-                                readCardDetail();
-                                return true;
-                            case KeyEvent.VK_R:
-                                readStatus();
-                                return true;
-                            case KeyEvent.VK_F1:
-                                readAllBoosterCards();
-                                return true;
-                            case KeyEvent.VK_F2:
-                                readPickedCards();
-                                return true;
-                            case KeyEvent.VK_T:
-                                readTimeRemaining();
-                                return true;
-                        }
-                    }
-                    return false;
-                };
-        KeyboardFocusManager.getCurrentKeyboardFocusManager()
-                .addKeyEventDispatcher(keyDispatcher);
-    }
-
-    // ========== BOOSTER NAVIGATION ==========
-
-    private void navigateBooster(int direction) {
-        refreshBoosterCards();
-        if (boosterCards.isEmpty()) {
-            speak("No cards in booster. Waiting for next pack.");
-            return;
-        }
-
-        cursorIndex += direction;
-        if (cursorIndex < 0) cursorIndex = boosterCards.size() - 1;
-        if (cursorIndex >= boosterCards.size()) cursorIndex = 0;
-
-        Object cardView = boosterCards.get(cursorIndex)[1];
-        String name = callString(cardView, "getName");
-        String manaCost = callString(cardView, "getManaCostStr");
-        boolean isCreature = callBool(cardView, "isCreature");
-
-        StringBuilder sb = new StringBuilder();
-        sb.append(cursorIndex + 1).append(" of ").append(boosterCards.size()).append(": ");
-        sb.append(name != null ? name : "Unknown");
-
-        if (manaCost != null && !manaCost.isEmpty()) {
-            sb.append(", ").append(formatManaCost(manaCost));
-        }
-
-        if (isCreature) {
-            String power = callString(cardView, "getPower");
-            String toughness = callString(cardView, "getToughness");
-            if (power != null && toughness != null) {
-                sb.append(", ").append(power).append("/").append(toughness);
-            }
-        }
-
-        speak(sb.toString());
-    }
-
-    private void readCardDetail() {
-        refreshBoosterCards();
-        if (boosterCards.isEmpty() || cursorIndex >= boosterCards.size()) {
-            speak("No card selected.");
-            return;
-        }
-
-        Object cardView = boosterCards.get(cursorIndex)[1];
-        speak(formatCardDetailed(cardView));
-    }
-
-    private void readAllBoosterCards() {
-        refreshBoosterCards();
-        if (boosterCards.isEmpty()) {
-            speak("No cards in booster.");
-            return;
-        }
-
-        StringBuilder sb = new StringBuilder(boosterCards.size() + " cards in booster. ");
-        for (int i = 0; i < boosterCards.size(); i++) {
-            Object cv = boosterCards.get(i)[1];
-            String name = callString(cv, "getName");
-            String manaCost = callString(cv, "getManaCostStr");
-            sb.append(i + 1).append(": ").append(name != null ? name : "Unknown");
-            if (manaCost != null && !manaCost.isEmpty()) {
-                sb.append(", ").append(formatManaCost(manaCost));
-            }
-            sb.append(". ");
-        }
-        speak(sb.toString());
-    }
-
-    // ========== PICKING ==========
-
-    @SuppressWarnings("unchecked")
-    private void pickCard() {
-        refreshBoosterCards();
-        if (boosterCards.isEmpty()) {
-            speak("No cards to pick.");
-            return;
-        }
-        if (cursorIndex >= boosterCards.size()) cursorIndex = 0;
-
-        // Check protection timer
-        Object protectionTimer = findFieldDeep(draftPanel, "protectionTimer");
-        if (protectionTimer instanceof Timer && ((Timer) protectionTimer).isRunning()) {
-            speak("Please wait before picking.");
-            return;
-        }
-
-        Object cardView = boosterCards.get(cursorIndex)[1];
-        String name = callString(cardView, "getName");
-        Object cardId = callMethod(cardView, "getId");
-        UUID draftId = findFieldTyped(draftPanel, "draftId", UUID.class);
-
-        if (cardId == null || draftId == null) {
-            speak("Cannot pick card.");
-            return;
-        }
-
-        speak("Picking: " + (name != null ? name : "Unknown"));
-
-        try {
-            // Call SessionHandler.sendCardPick(draftId, cardId, cardsHidden)
-            Set<?> cardsHidden = findFieldTyped(draftPanel, "cardsHidden", Set.class);
-            if (cardsHidden == null) cardsHidden = new java.util.HashSet<>();
-
-            Class<?> sessionHandler = Class.forName("mage.client.SessionHandler");
-            Method sendPick = sessionHandler.getMethod("sendCardPick", UUID.class, UUID.class, Set.class);
-            Object result = sendPick.invoke(null, draftId, cardId, cardsHidden);
-
-            if (result != null) {
-                // The pick was sent successfully. UI refresh failures below
-                // must not be reported as a failed pick.
-                try {
-                    // Update the picked cards display
-                    Object picks = callMethod(result, "getPicks");
-                    if (picks != null) {
-                        Method loadPicked = draftPanel.getClass().getDeclaredMethod("loadCardsToPickedCardsArea", picks.getClass());
-                        loadPicked.setAccessible(true);
-                        loadPicked.invoke(draftPanel, picks);
-                    }
-                } catch (Exception uiError) {
-                    System.err.println("[XMage Access] Draft pick UI update failed: " + uiError.getMessage());
-                }
-
-                // Clear the booster
-                if (draftBooster != null) {
-                    // Load empty booster
-                    try {
-                        Object emptyView = findFieldDeep(draftPanel, "EMPTY_VIEW");
-                        Object bigCard = findFieldDeep(draftPanel, "bigCard");
-                        Method loadBooster = draftBooster.getClass().getMethod("loadBooster",
-                                Class.forName("mage.view.CardsView"),
-                                Class.forName("mage.client.cards.BigCard"));
-                        loadBooster.invoke(draftBooster, emptyView, bigCard);
-                    } catch (Exception ignored) {}
-                }
-
-                speak("Picked " + (name != null ? name : "card") + ". Waiting for other players.");
-            } else {
-                speak("Pick failed.");
-            }
-        } catch (Exception e) {
-            System.err.println("[XMage Access] Draft pick error: " + e.getMessage());
-            speak("Error picking card.");
-        }
-    }
-
     // ========== STATUS READING ==========
-
-    private void readStatus() {
-        StringBuilder sb = new StringBuilder("Draft status. ");
-        sb.append(readDraftStatus());
-
-        refreshBoosterCards();
-        if (!boosterCards.isEmpty()) {
-            sb.append(boosterCards.size()).append(" cards in booster. ");
-            if (cursorIndex < boosterCards.size()) {
-                sb.append("Current: ").append(getCardName(cursorIndex)).append(". ");
-            }
-        } else {
-            sb.append("Waiting for next pack. ");
-        }
-
-        speak(sb.toString());
-    }
 
     private String readDraftStatus() {
         StringBuilder sb = new StringBuilder();
@@ -347,15 +127,6 @@ public class DraftPanelHandler {
         return sb.toString();
     }
 
-    private void readTimeRemaining() {
-        String time = readTimeField();
-        if (time != null) {
-            speak("Time remaining: " + time);
-        } else {
-            speak("Timer not available.");
-        }
-    }
-
     private String readTimeField() {
         JTextField timeField = findFieldTyped(draftPanel, "editTimeRemaining", JTextField.class);
         if (timeField != null) {
@@ -363,40 +134,6 @@ public class DraftPanelHandler {
             if (text != null && !text.isEmpty()) return text;
         }
         return null;
-    }
-
-    private void readPickedCards() {
-        Object pickedCards = findFieldDeep(draftPanel, "pickedCards");
-        if (pickedCards == null) {
-            speak("No picked cards data.");
-            return;
-        }
-
-        // SimpleCardsView is a Map<UUID, SimpleCardView>
-        if (pickedCards instanceof java.util.Map) {
-            java.util.Map<?, ?> cards = (java.util.Map<?, ?>) pickedCards;
-            if (cards.isEmpty()) {
-                speak("No cards picked yet.");
-                return;
-            }
-
-            StringBuilder sb = new StringBuilder(cards.size() + " cards picked. ");
-            int idx = 0;
-            for (Object card : cards.values()) {
-                String name = callString(card, "getName");
-                if (name != null) {
-                    sb.append(name).append(", ");
-                    idx++;
-                }
-                if (idx >= 20) {
-                    sb.append("and ").append(cards.size() - idx).append(" more. ");
-                    break;
-                }
-            }
-            speak(sb.toString());
-        } else {
-            speak("Cannot read picked cards.");
-        }
     }
 
     // ========== BOOSTER CARDS ==========
@@ -419,7 +156,7 @@ public class DraftPanelHandler {
                 }
             }
         } catch (Exception e) {
-            System.err.println("[XMage Access] Error refreshing booster: " + e.getMessage());
+            xmageaccess.util.Log.warn("Draft", "error refreshing booster", e);
         }
     }
 
@@ -427,7 +164,6 @@ public class DraftPanelHandler {
         if (index < 0 || index >= boosterCards.size()) return "Unknown";
         return callString(boosterCards.get(index)[1], "getName");
     }
-
 
     // ========== VISIBILITY ==========
 
