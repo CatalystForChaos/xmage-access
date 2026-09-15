@@ -1,10 +1,16 @@
 XMAGE ACCESS - TESTPLAN
 =======================
 
-Stand: 28. August 2026
-Build: heute gebaut und installiert als
+Aktuell ist Runde 3 vom 15. September: Abschnitt K, ganz unten. Die
+Runden 1 und 2 darüber bleiben als Protokoll stehen.
+
+Runde 1, Stand: 28. August 2026
+Build: installiert als
        xmage\mage-client\lib\xmage-access-0.1.0.jar
        MD5 1229b3e15226cbbc1bbd312dc6e5323c
+       Diese MD5 gehört zum Build vom 29. August, 15:18 Uhr, also zu
+       Runde 2. Runde 1 lief am selben Tag ab 13:43 Uhr mit einem
+       früheren Build.
 Umfang: alles, was seit Version 0.1.13 dazugekommen ist und noch nie in
        einem laufenden Client lief.
 
@@ -513,3 +519,135 @@ Aus deinen Ergebnissen offen geblieben:
 - A2, die Neuigkeiten-Seite. Du hast recht: das gehört als eigenes Fenster
   mit navigierbaren Zeilen, nicht als Dialog mit Ctrl+Down und Ctrl+Up.
   Noch nicht gebaut.
+
+  Nachtrag 15. September: gebaut, siehe K6.
+
+
+K. RUNDE 3 - nach den Änderungen vom 15. September
+--------------------------------------------------
+
+Neuer Build, MD5 8b4a03d640b9c63bd86a6907759e15c0, schon installiert.
+
+Rückweg, falls etwas grundsätzlich kaputt ist: im Ordner
+xmage\mage-client\lib die Datei xmage-access-0.1.0.jar löschen und eine
+der beiden Sicherungen in xmage-access-0.1.0.jar umbenennen:
+  xmage-access-0.1.0.jar.2026-08-29.bak ist der Build für Runde 2,
+  xmage-access-0.1.0.jar.v0.1.13.bak ist die letzte veröffentlichte Version.
+
+Runde 2 ist nie als Ganzes gelaufen. Am 2. September lief der Client
+einmal: verbunden, Deckeditor geöffnet, kein Spiel. Das Logfile von damals
+zeigt, dass das Lobby-Fenster nach dem Verbinden die Tastatur bekommen hat.
+J1 sieht also behoben aus - bestätigt ist es erst, wenn du es hörst. Alles
+aus Runde 2 steckt unten wieder mit drin.
+
+Das Logfile xmage-access.log liegt in
+C:\Users\marcel\Downloads\mage\xmage\mage-client und wird bei jedem Start
+neu angelegt. Wenn etwas schiefgeht: nicht neu starten, sondern mir sagen,
+dass die Datei da ist - beim nächsten Start ist sie weg.
+
+K1  Lobby nach dem Verbinden (war J1 und A4)
+    Tun:      Verbinden, nichts drücken.
+    Erwartet: Nach der Lobby-Ansage "Actions. 6 items." - ohne Alt+Tab.
+    Ergebnis: OFFEN
+
+K2  Lobby nach dem Match (war J2 und D10) - die wichtigste Neuerung
+    Tun:      Ein Match zu Ende spielen oder aufgeben, das Spiel schließen,
+              wie du es sonst tust, dann bis zu fünf Sekunden nichts
+              drücken.
+    Erwartet: Sobald das Spielfenster zugeht, ist die Tastatur wieder im
+              Lobby-Fenster, und zwar in der Liste, in der du dort zuletzt
+              warst - meist "Open Games". Nicht mehr in XMages Fenster.
+    Ergebnis: OFFEN
+    Warum es vorher nicht ging: XMage versteckt die Lobby während eines
+    Spiels gar nicht, es legt das Spiel nur davor. Der Agent hat darauf
+    gewartet, dass die Lobby wieder auftaucht, und das geschah nie. Jetzt
+    reagiert er darauf, dass sich das Spielfenster schließt.
+
+K3  Spielansagen ohne gestrichene Tasten
+    Tun:      Ein Spiel starten. Auf eine Zielauswahl oder eine Fähigkeit
+              warten. Irgendwann Ctrl+F1.
+    Erwartet: Beim Start: "Game started. Tab between zones, Enter acts, D
+              reads in full. Ctrl+F1 reads the prompt, Ctrl+K opens game
+              actions." Bei Zielen "Choose target:" und die Namen, ohne
+              "Ctrl+Shift+1". Ctrl+F1 und neue Fragen nennen die Knöpfe nur
+              beim Namen, etwa "OK, Cancel", ohne "Ctrl+1". Ziele,
+              Fähigkeiten und Knöpfe stehen als Zeilen in "Actions".
+    Ergebnis: OFFEN
+
+K4  Ctrl+F1 im Spiel (war J3 und D4)
+    Tun:      An einer Stelle mit echter Frage Ctrl+F1 drücken.
+    Erwartet: Sag mir, was du hörst, und ob damit das Problem aus Runde 1
+              weg ist. Das Logfile schreibt jede Auslösung mit.
+    Ergebnis: OFFEN
+
+K5  Die Listen bleiben still (war J5)
+    Tun:      In einer Liste stehen bleiben, während sich darin etwas tut:
+              im Spiel die Hand oder ein Schlachtfeld, in der Lobby der
+              Chat, im Draft die Zone "Draft" mit der Uhr.
+    Erwartet: Ändert sich eine andere Zeile, liest der Screenreader deine
+              Zeile nicht neu vor. Die Uhr im Draft ändert sich still; wenn
+              du die Zeile wieder ansteuerst, steht die aktuelle Zeit da.
+              Nur wenn sich die Zeile unter dir ändert und für etwas steht
+              - eine Karte, einen Knopf, ein Match -, liest der Agent sie
+              neu vor. Beispiel: Du spielst eine Handkarte, an ihre Stelle
+              rückt die nächste, und die hörst du.
+    Ergebnis: OFFEN
+    Zwei Fragen dazu: Liest NVDA irgendwo trotzdem noch von selbst neu vor?
+    Und passt dir die Regel "Karten, Knöpfe und Matches ja, Uhr, Chat und
+    Log nein"?
+
+K6  Neuigkeiten-Seite als Fenster (war A2)
+    Tun:      Die Seite öffnen. Von selbst geht sie nur auf, wenn es neue
+              Nachrichten gibt; sonst im Verbindungsdialog der Knopf "Show
+              what's new". Dann: Pfeiltasten in der ersten Liste, Tab zu
+              "Sections", dort eine Überschrift mit Enter anspringen, Tab zu
+              "Actions", D auf einer Zeile mit Link, zum Schluss Escape.
+    Erwartet: Beim Öffnen: "What's new. N lines. Tab reaches the sections
+              and the actions, Escape closes." Die Zeilen sind Absätze und
+              Listenpunkte, kein HTML. Überschriften enden auf "heading",
+              Zeilen mit Link auf "link"; Enter darauf öffnet den Link im
+              Browser, D liest die Adresse. Enter in "Sections" springt zur
+              Überschrift und sagt, die wievielte Zeile es ist. "Actions"
+              hat drei Zeilen: im Browser öffnen, in die Zwischenablage
+              kopieren, schließen. Escape schließt die Seite; die Tastatur
+              ist danach wieder dort, wo XMage gerade vorn ist - nach dem
+              Verbinden also in der Lobby. Keine Ctrl-Kürzel mehr.
+    Ergebnis: OFFEN
+
+K7  Ctrl+A im Deckeditor (war J4 und C5)
+    Tun:      Deckeditor öffnen, in eine der Listen tabben, Ctrl+A. Danach
+              dasselbe aus dem Suchfeld heraus.
+    Erwartet: Aus einer Liste öffnet sich der Länder-Dialog. Im Suchfeld
+              bleibt Ctrl+A "alles markieren".
+    Ergebnis: OFFEN
+
+K8  Ohne die gestrichenen Kürzel (war J6, J7 und J8)
+    Tun:      Wie in J6 bis J8 beschrieben: die alten Kürzel in Lobby,
+              Beitrittsdialog und Spiel ausprobieren, dann alles mit Tab,
+              Pfeiltasten, Enter und D erledigen.
+    Erwartet: Die alten Kürzel tun nichts. Sag mir, wo dir eine Taste
+              fehlt, weil der Weg über die Zeilen zu langsam ist - dann
+              kommt genau die eine zurück.
+    Ergebnis: OFFEN
+
+K9  Draft und Turnier (war J9, also E1 bis E5)
+    Tun:      E1 bis E5 von oben. Draft- und Turnierfenster haben statt der
+              alten Kürzel eine eigene erste Liste, "Draft" beziehungsweise
+              "Tournament".
+    Erwartet: Wie in E1 bis E5 beschrieben; zur Uhr in E3b siehe K5.
+              Nach dem Draft behält der Deckbau die Tastatur (E4). Endet im
+              Turnier ein Match, sollte die Tastatur im Turnierfenster
+              landen, falls XMage dann das Turnier vorn zeigt. Notiere, wo
+              sie tatsächlich landet.
+    Ergebnis: OFFEN
+
+K10 Dialoge und Beenden (war J9, also F1 bis F3)
+    Tun:      F1 bis F3 von oben.
+    Ergebnis: OFFEN
+
+Freie Beobachtungen zu Runde 3. Besonders interessant: jedes Mal, wenn ein
+Fenster des Agenten zugeht - Spiel, Deckeditor, Sideboarding, Turnier,
+Neuigkeiten - und die Tastatur danach nicht dort ist, wo du sie erwartest.
+-
+-
+-

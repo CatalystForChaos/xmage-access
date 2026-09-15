@@ -4,13 +4,13 @@ Current state of the work, so it can be picked up from a cold start. Reasoning
 for individual changes lives in the commit messages; this file carries what git
 cannot: what is unfinished, untested, or deliberately left alone.
 
-Last updated: 2026-08-29.
+Last updated: 2026-09-15.
 
 ## Where things stand
 
 Released: **v0.1.13** (tag + GitHub release with `xmage-accessible.zip`).
 
-Committed since, unreleased:
+Committed since, unreleased, oldest first:
 
 - **Game actions** (`ui/GameActions.java`) — skip actions, hold priority, mana
   payment options, auto-answer resets, rollback, view a player's deck or
@@ -22,149 +22,93 @@ Committed since, unreleased:
   `FormDialogHandler`.
 - **Deck editor filter fix** — toggling a filter used to invert itself and could
   take the client down. See the commit for the mechanism; `harness/` pins it.
-- **What's new dialog** — the modal news page that opens by itself at startup.
-  Its content is a JavaFX WebView, invisible to a screen reader, so the client
-  just looked frozen. Now announced, read out of the WebView's own DOM line by
-  line (Ctrl+Down/Up), copyable (Ctrl+C), and openable in the system browser
-  (Ctrl+B), which is the better place to read it — links and all.
 - **Random packs selector** — the set pool for random, rich man and chaos
-  reshuffled drafts: several hundred checkboxes labelled with bare set codes,
-  in a heavyweight AWT panel. Now a spoken cursor (Ctrl+Up/Down, Ctrl+Space),
-  with Ctrl+F to find a set by name or code, since browsing a few hundred sets
-  one at a time is not a plan.
-- **No agent shortcuts inside XMage's own window.** They were never used
-  there — the work happens in the accessible windows — and swallowing keys
-  there only took bindings away from XMage. `GamePanelHandler` and
-  `LobbyHandler` now gate on `UiUtils.isActiveWindow(theirOwnWindow)`; the
-  deck editor's three shortcuts were already unreachable and are gone; dialog
-  handlers and `Ctrl+Q` are unaffected.
-- **Accessible draft and tournament windows.** The two surfaces that had no
-  window of their own, and therefore lost their keyboard entirely in the
-  change above. `AccessibleDraftWindow` is the draft status, the booster and
-  your pool as three lists — Enter picks, through the same `sendCardPick`
-  call XMage's own click makes. `AccessibleTournamentWindow` is the
-  tournament status, standings, matches and chat, with Enter watching a
-  match exactly when XMage's own action cell offers it.
-- **Both were reworked to the shape of the existing windows.** They were
-  written first with a shortcut set of their own — Ctrl+R for the status,
-  Ctrl+T for the draft clock, Ctrl+M for the chat box, Ctrl+F1 for help —
-  which was the wrong instinct: it carried XMage's panel shortcuts across
-  instead of building the window the way the lobby is built. What those keys
-  read is now a zone of its own in each window, `Draft` and `Tournament`,
-  refreshed by the same poll, so it is found with Tab and the arrow keys
-  like everything else. Enter and D are bound only on the zones that hold
-  cards. What is left in both windows is Tab, the arrows, Enter, D and
-  Escape. The rule is written down in `CLAUDE.md`.
-- **Accessible windows take the keyboard when they open.** The counterpart
-  the shortcut change needed, and a real defect rather than a worry: each
-  window focused a list inside itself with `requestFocusInWindow()`, which
-  the JDK grants only if that window "is already the focused Window". A
-  window opening behind XMage's frame — or behind the still-modal connect
-  dialog — therefore got neither the focus nor, now, its shortcuts.
-  `UiUtils.focusAgentWindow` raises the window first and holds the component
-  request until the window reports the focus. The lobby takes it when it is
-  announced rather than when it is built, and again when it returns from a
-  game, unless another accessible window is active — which is where the user
-  is while building a deck after a draft.
+  reshuffled drafts, as a spoken cursor with a search by name or code.
+- **No agent shortcuts inside XMage's own window.** Panel handlers gate on
+  their own accessible window being active; dialog handlers and `Ctrl+Q` are
+  exempt.
+- **Accessible draft and tournament windows**, built like the lobby window:
+  status, booster and picks, or status, standings, matches and chat, as lists.
+- **What the first test round turned up** — accessible windows take the
+  keyboard when they open; `xmage-access.log`; Ctrl+A in the deck editor; the
+  keys that only repeated a row are gone from the lobby, the join-table dialog
+  and the game. A review before committing found announcements that still
+  named the removed keys and about 300 orphaned lines; both fixed there.
+- **The lobby takes the keyboard back after a match** (test D10). XMage never
+  hides the lobby for a game, so the agent cannot notice it coming back;
+  `UIWatcher` hands the keyboard on whenever one of the agent's windows closes.
+- **List refreshes no longer move the selection.** Rows are replaced in place,
+  so a change elsewhere in a list no longer re-announces the row you are on. A
+  row that stands for something and changes under the cursor is read out.
+- **The news page is a window of its own.** `AccessibleNewsWindow`: the page as
+  rows, its headings as a Sections list to jump from, and Actions to open it in
+  the browser, copy it or close it. The dialog's shortcuts are gone.
 
-**None of it has been tested in a running game yet.** The build is installed at
-`~/Downloads/mage/xmage/mage-client/lib/xmage-access-0.1.0.jar`, with the
-v0.1.13 build kept beside it as `.v0.1.13.bak` for rollback.
+Installed at `~/Downloads/mage/xmage/mage-client/lib/xmage-access-0.1.0.jar`:
+the build of 15 September, MD5 `8b4a03d640b9c63bd86a6907759e15c0`. Beside it,
+for rollback: `.2026-08-29.bak`, the build meant for round two, and
+`.v0.1.13.bak`, the last release.
 
-`TESTPLAN.txt` in the repo root is the plan for that round: 32 numbered
-checks in German, each with a `Ergebnis:` line to fill in, written so the
-results can be read back into this file afterwards. It is plain text and
-carries the installed build's MD5 so it is obvious which build was tested.
+## Test rounds
 
-## The first test round, 2026-08-29
+`TESTPLAN.txt` holds all of them, in German, with a result line per check.
 
-`TESTPLAN.txt` carries the results in full; this is what came of them.
+**Round one, 29 August** (sections A–G). What came of it is in the commit
+"fix: what the first test round turned up", apart from D10, which has a commit
+of its own.
 
-**Two failures still open, and they are the same failure.** The lobby window
-does not take the keyboard after connecting (A4), and does not take it back
-when a match ends (D10). In both cases the focus stays in XMage's own frame
-and Alt+Tab reaches the window. `toFront()` plus `requestFocus()` is a
-request to the window manager, and something is turning it down or taking
-the focus straight back — the What's New dialog, which XMage opens by itself
-right after connecting, is one candidate, but that is a guess and guesses are
-not what this file is for. `util/Log` now writes to a file for exactly this
-reason (see below), with the focus path logging what it asked for, what was
-active at the time, and whether the window ever reported gaining it. The next
-run should say which.
+**Round two, planned 29 August** (sections I and J) — never run as a whole.
+The client ran once afterwards, on 2 September: connected, opened the deck
+editor, played no game; the server log shows none either. The agent log of
+that run shows the lobby window reporting the focus 400 ms after asking for
+it, and still being the active window 30 seconds later when the deck editor
+took the keyboard. That is the first evidence that A4 is fixed, though nobody
+has listened to it yet.
 
-**A log file.** Launched through XMage's own launcher the client has no
-console, so everything the agent printed was lost; `mageclient.log` is log4j
-only and never saw it. `Log` now writes to `xmage-access.log` in the client's
-working directory (falling back to the user's home), truncated at every
-start. `Log.event` is the level that is always written: windows opening,
-focus being asked for, handlers attaching.
+**Round three, planned 15 September** (section K) — what to test next. It
+carries everything from round two over, plus the changes of 15 September.
 
-**Fixed: Ctrl+A in the deck editor did nothing (C5).** Every look and feel
-binds Ctrl+A `WHEN_FOCUSED` on JList to `selectAll` and on JTextField to
-`select-all`, and that map is consulted before `WHEN_IN_FOCUSED_WINDOW` — so
-the window's Add Lands never fired while a list or the search field had the
-focus, which is always. The zone lists now bind Ctrl+A to Add Lands
-themselves (select-all means nothing in a single-selection list); the search
-field keeps its own, where it is worth having.
+## Open
 
-**Fixed: the zones talked over themselves (G).** `ZoneListPanel.updateItems`
-now drops a refresh that would change nothing, comparing text, detail text,
-source object and action type. The timers rebuild the lists on a fixed
-schedule; clearing and refilling a JList fires accessibility events at the
-screen reader whether or not anything is different.
-
-**Shortcuts removed, on the same rule as the draft and tournament windows.**
-Everything below had a route through the accessible windows already:
-
-- The lobby's thirteen keys are gone, and `LobbyHandler` with them shrank
-  from 709 lines to 151. Ctrl+G, Ctrl+J, Ctrl+W, Ctrl+N, Ctrl+E, Ctrl+D,
-  Ctrl+R, Ctrl+P, Ctrl+I, Ctrl+M, Ctrl+Shift+M and the Ctrl+Up/Down cursor
-  all repeated rows of `AccessibleLobbyWindow`. Marcel named eleven of them;
-  Ctrl+W and Ctrl+I went too, because the window's Enter already joins *or*
-  watches and the zones announce their own counts.
-- The join-table dialog keeps Ctrl+D, which stands in for XMage's
-  JFileChooser, and nothing else: the password field and the OK button are
-  in the dialog's own Tab order.
-- In game, the navigation and clicking keys are gone — the hand cursor,
-  Ctrl+Enter to play, Ctrl+D, the battlefield walk, Ctrl+T and
-  Ctrl+Shift+1-9 for targets, Ctrl+1/2/3 for the buttons, Ctrl+Z, Ctrl+M.
-  `AccessibleGameWindow`'s Actions zone already carries the prompt, the
-  OK/Cancel/Special/Undo buttons, the ability and target choices; the Hand
-  and battlefield zones carry the rest. What stays is what has no equally
-  quick route: the Ctrl+F1-F11 zone reads, the game log, XMage's skip keys
-  and the Ctrl+K menu. `GamePanelHandler` lost 241 lines.
-
-**Still open from the round:**
-
-- **Ctrl+F1 in game (D4)** — reported as the one read that misbehaves, but
-  not how. It now logs what it found: the helper panel, the feedback text,
-  the buttons and what it spoke.
-- **The What's New page (A2)** — works, but should be a window with the text
-  as navigable rows rather than a dialog driven by Ctrl+Down/Up.
-- **The whole draft and tournament block (E1-E5) and F1-F3** were not
-  reached.
-
-What the focus change still cannot prove without a client: `toFront()` is a
-request to the window manager, not a guarantee. Watch, in that test round,
-whether each accessible window really comes up with the keyboard — the lobby
-after connecting, the game window when a game starts, the draft window when
-the first booster arrives, and the lobby again when a game ends. If one of
-them does not, Alt+Tab still reaches it; the agent has no key of its own for
-that, deliberately, since it takes no keys inside XMage's window.
+- **Nothing of 15 September has run in a client.** The hand-over after a
+  match, the in-place refresh and the news window are verified against the JDK
+  sources, the installed client's bytecode, the harnesses and a probe — not by
+  ear.
+- **What NVDA does with the list events that remain.** An in-place change
+  fires a contents change and no selection event. Whether NVDA reacts to that
+  at all can only be heard (K5).
+- **The rule for reading out a changed row** — rows with a source object are
+  read when they change under the cursor, rows without one change silently. It
+  is a judgement about what is wanted; K5 asks.
+- **Ctrl+F1 in game (D4)** — reported as misbehaving, not how. It logs what it
+  found; K4 asks what is heard.
+- **The draft and tournament windows (E1–E5) and F1–F3** have never been
+  reached in a test.
+- **Where the keyboard lands after a tournament match.** The hand-over gives it
+  to the tournament window when XMage shows the tournament pane in front.
+  Whether XMage does at that moment is not checked (K9).
+- **Draft to deck building.** The draft window is deliberately left out of the
+  hand-over, because deck building takes the keyboard itself. If E4 finds the
+  keyboard in XMage's frame between the two, that assumption was wrong.
 
 ## Verified so far
 
 - Builds on JDK 8, class file version 52, loads under `-javaagent`.
-- Every field name, method signature, enum constant and string literal the new
-  code depends on was checked against both the `../mage` source tree and the
-  installed **1.4.61** client JARs with `javap`. That includes the JavaFX
-  signatures the news dialog leans on, checked against the `javafx-*-11.0.2`
-  JARs the client ships.
-- `harness/` — eight harnesses, 116 checks, all passing: game actions (27),
-  the deck editor filter defect (13), the news dialog's reading path (12), the
-  pack selector's cursor (14), the draft window's pick (15), the tournament
-  window's watch (11), the window-focus helpers (15) and the zone refresh
-  (9).
+- Every field name, method signature, enum constant and string literal the code
+  depends on was checked against both the `../mage` source tree and the
+  installed **1.4.61** client JARs with `javap`. On 15 September that added
+  `MageFrame.activeFrame` and the bytecode of `setActive`, `deactivate`,
+  `MagePane.removeFrame` and `TablesPanel.hideTables`, the draft and tournament
+  status fields, and `MageDialog.hideDialog`.
+- `harness/` — nine harnesses, 141 checks, all passing: game actions (27), the
+  deck editor filter defect (13), the news window (19), the pack selector's
+  cursor (14), the draft window's pick (15), the tournament window's watch
+  (11), the window-focus helpers (15), the zone refresh (20) and the keyboard
+  hand-over (7). Run against the previous refresh, seven of the zone refresh
+  checks fail, so they do tell the two apart.
+- `harness/probes/NewsScriptProbe.java` — the news window's page script, run in
+  the client's own Java 8 and WebKit against a copy of the live page: 415
+  blocks, 26 headings, 15 with a link.
 
 ## Known gaps, from the audit of the XMage client
 
@@ -198,3 +142,10 @@ Two smaller ideas that came out of using the deck editor:
 - Only the set selection narrows XMage's card query. The search term is applied
   afterwards in Java, over cards already materialised, so it costs the same
   database pass as no search term at all.
+- XMage does not hide the pane it switches away from; `MageFrame.activeFrame`
+  is the only record of what is in front. Written down in `CLAUDE.md`.
+- A bare JavaFX `WebEngine` never finished loading a page in the probe, while
+  one in a `WebView` in a `Scene` in a `JFXPanel` did — the way XMage builds its
+  news dialog. See `harness/README.md`.
+- Harness runs write `xmage-access.log` into the working directory; `*.log` is
+  in `.gitignore`.
