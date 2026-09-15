@@ -18,8 +18,8 @@ OUT=/tmp/xmage-access-harness
 javac -cp target/xmage-access-0.1.0.jar -d "$OUT" \
   $(find harness/stubs harness/src -name '*.java')
 
-for h in GameActionsHarness FilterHarness WhatsNewHarness PacksSelectorHarness \
-         DraftWindowHarness TournamentWindowHarness FocusHarness \
+for h in GameActionsHarness FilterHarness WhatsNewHarness DraftWindowHarness \
+         TournamentWindowHarness TableWaitingWindowHarness FocusHarness \
          ZoneListHarness HandoverHarness; do
   java -cp "$OUT;target/xmage-access-0.1.0.jar" xmageaccess.ui.$h
 done
@@ -84,6 +84,22 @@ are read from the model so those ids come along, that a match is offered for
 watching exactly when XMage's own action cell says "Watch", and that watching
 hands that row's table id to `SessionHandler.watchTournamentTable`.
 
+**`TableWaitingWindowHarness`** — the waiting room, the window for XMage's
+`TableWaitingDialog`. XMage lets the user reorder the seat table's columns in
+its view, so this pins that the seats are read from the model by model
+column: a taken seat by player and type, with rating and history left for D
+and a computer player's rating of 0 left out, an open seat as empty. It pins
+that game type and deck type come out of the title XMage sets after its first
+table update, split at the last separator, and are left out before; that
+Start is offered only to the table owner — XMage's Start button is visible
+exactly for the owner and enabled exactly when the table is ready — and
+presses that button only while it is enabled; that Leave presses Cancel and
+says so when XMage keeps the dialog open because the table has started; what
+is said as players come and go, where swapping seats and XMage's first fill of
+the model are no news; and when the window lets the keyboard be handed on
+after it closes: always after leaving, never from a table that was ready to
+start, since the match or tournament window takes it then.
+
 **`ZoneListHarness`** — the refresh every zone in every window goes
 through, and what it tells the screen reader. Clearing and refilling a JList
 moves the selection off its row and back, and JList's accessible context
@@ -123,18 +139,20 @@ and hands the keyboard to the window belonging to the pane XMage shows in
 front. This pins that the pane is read from `MageFrame`'s private static
 `activeFrame`, that the window chosen is the one whose panel sits inside that
 pane — the lobby's while XMage shows the lobby, the tournament's while it
-shows that — and that a window no longer showing is not brought back. Its
-stubs, `MageFrame` and `MagePane`, carry only that field and that class; the
-wait for the window manager is left to the test round.
+shows that — and that a window no longer showing is not brought back.
 
-**`PacksSelectorHarness`** — the pack selector's cursor. It shows the
-checkboxes are reachable at all (they sit in a heavyweight `java.awt.Panel`
-that the handler looks up as a `Container`), that the cursor clamps at both
-ends, that toggling writes through to what `getSelectedPacks` reads *without*
-notifying any `ActionListener` — the same defect `FilterHarness` pins, avoided
-by construction this time — that select-all and select-none go through XMage's
-own buttons, and that an empty pool is refused before the Apply button is
-clicked, since XMage answers that with a `JOptionPane` nobody would hear.
+When a game ends, XMage shows the topmost pane that is left, not the lobby.
+In the test of 15 September that was a deck editor opened before the game,
+whose window had been closed, and the log said "handing the keyboard to
+nobody". So the choice moves on to the panes behind, front to back as they sit
+on `MageFrame.getDesktop()`, the z-order `MageFrame.getTopMost` ranks by. This
+replays that evening — lobby, deck editor, game, each put in front, then the
+game's pane hidden and removed — and pins that the panes are read in that
+order, that a closed window is passed over to the lobby behind it, that a
+pane nearer the front comes before the lobby, that a hidden pane is skipped,
+and that nothing is chosen while XMage shows nothing. Its stubs, `MageFrame`
+and `MagePane`, carry only that field, that desktop and that class; the wait
+for the window manager is left to the test round.
 
 ## Probes
 

@@ -255,6 +255,35 @@ public final class ReflectionUtils {
         }
     }
 
+    /**
+     * Invoke a static no-argument method on a class named at runtime and
+     * return what it returns. Null if the class or the method is missing, or
+     * the call fails.
+     */
+    public static Object callStatic(String className, String methodName) {
+        String cacheKey = className + '#' + methodName;
+        MethodResult cached = METHOD_STATIC_CACHE.get(cacheKey);
+        if (cached == null) {
+            Method m = null;
+            Class<?> clazz = findClass(className);
+            if (clazz != null) {
+                try {
+                    m = clazz.getMethod(methodName);
+                } catch (Exception ignored) {
+                    // absent — cache negative
+                }
+            }
+            cached = new MethodResult(m);
+            METHOD_STATIC_CACHE.put(cacheKey, cached);
+        }
+        if (cached.method == null) return null;
+        try {
+            return cached.method.invoke(null);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     private static Field walkAndFindField(Class<?> clazz, String name) {
         Class<?> c = clazz;
         while (c != null) {

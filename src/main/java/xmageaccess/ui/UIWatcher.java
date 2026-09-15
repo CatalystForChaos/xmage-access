@@ -13,9 +13,12 @@ import java.awt.event.WindowEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BooleanSupplier;
 
 /**
  * Watches for XMage windows and panels appearing, then attaches
@@ -225,7 +228,7 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
                 || handler instanceof NewTournamentDialogHandler
                 || handler instanceof DeckGeneratorDialogHandler
                 || handler instanceof DownloadImagesDialogHandler
-                || handler instanceof TableWaitingDialogHandler
+                || handler instanceof AccessibleTableWaitingWindow
                 || handler instanceof PickChoiceDialogHandler
                 || handler instanceof PickNumberDialogHandler
                 || handler instanceof PickCheckBoxDialogHandler
@@ -239,8 +242,7 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
                 || handler instanceof AddLandDialogHandler
                 || handler instanceof ErrorDialogHandler
                 || handler instanceof FormDialogHandler
-                || handler instanceof WhatsNewDialogHandler
-                || handler instanceof RandomPacksSelectorDialogHandler;
+                || handler instanceof WhatsNewDialogHandler;
     }
 
     /**
@@ -269,10 +271,8 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
                     || handler instanceof JoinTableDialogHandler
                     || handler instanceof ErrorDialogHandler
                     || handler instanceof FormDialogHandler
-                    // Both are modal. The pack selector owns Ctrl+R and the
-                    // arrow keys while it is up; the news has its own window.
-                    || handler instanceof WhatsNewDialogHandler
-                    || handler instanceof RandomPacksSelectorDialogHandler) {
+                    // Modal; the news has its own window.
+                    || handler instanceof WhatsNewDialogHandler) {
                 return true;
             }
             if (handler instanceof ShowCardsDialogHandler
@@ -484,13 +484,6 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
             }
         }
 
-        // Detect RandomPacksSelectorDialog (set pool for random-pack drafts)
-        if (className.equals("mage.client.dialog.RandomPacksSelectorDialog")) {
-            if (!attachedHandlers.containsKey(comp) && comp.isVisible()) {
-                attachRandomPacksSelectorDialog(comp);
-            }
-        }
-
         // Log unrecognized dialog classes once (helps identify damage assignment dialog)
         if (!attachedHandlers.containsKey(comp) && comp.isVisible()) {
             if ((comp instanceof JDialog || comp instanceof JInternalFrame)
@@ -542,11 +535,28 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
 
     /** When {@code window} closes, see that the keyboard does not stay in XMage's frame. */
     private void returnKeyboardOnClose(final Window window) {
+        returnKeyboardOnClose(window, null);
+    }
+
+    /**
+     * As {@link #returnKeyboardOnClose(Window)}, unless {@code handOver}
+     * answers false at the moment the window closes. That is for a window
+     * that knows another one is about to take the keyboard: the waiting room,
+     * which XMage closes when its table starts, whereupon the match or
+     * tournament window takes the keyboard by itself.
+     */
+    private void returnKeyboardOnClose(final Window window, final BooleanSupplier handOver) {
         window.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosed(WindowEvent e) {
                 window.removeWindowListener(this);
-                returnKeyboardAfterClose(window.getClass().getSimpleName());
+                String closed = window.getClass().getSimpleName();
+                if (handOver != null && !handOver.getAsBoolean()) {
+                    xmageaccess.util.Log.event("Focus", closed
+                            + " closed; another window is about to take the keyboard, nothing handed on");
+                    return;
+                }
+                returnKeyboardAfterClose(closed);
             }
         });
     }
@@ -564,6 +574,13 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
      * game window closes a moment later, and Windows hands the focus to
      * XMage's frame, where the agent takes no keys.
      *
+     * <p>What XMage puts in front then is not necessarily the lobby.
+     * {@code MageFrame.deactivate} shows the topmost pane that is left, and in
+     * the test of 15 September that was a deck editor opened before the game,
+     * whose window had been closed: the log said "handing the keyboard to
+     * nobody". So the choice moves on to the panes behind — see
+     * {@link #panesFrontToBack}.
+     *
      * <p>Where the focus went is only settled once the window manager has
      * answered the close, so the check waits briefly instead of asking in the
      * same event.
@@ -577,8 +594,10 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
                         + activeName + ", left there");
                 return;
             }
-            Window target = windowForPane(activePane(), candidateWindows());
+            List<Component> panes = panesFrontToBack();
+            Window target = windowForPanes(panes, candidateWindows());
             xmageaccess.util.Log.event("Focus", closed + " closed; active now: " + activeName
+                    + "; XMage shows " + (panes.isEmpty() ? "nothing" : panes.get(0).getClass().getSimpleName())
                     + "; handing the keyboard to "
                     + (target == null ? "nobody" : target.getClass().getSimpleName()));
             if (target != null) {
@@ -594,6 +613,44 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
         Class<?> mageFrame = xmageaccess.util.ReflectionUtils.findClass("mage.client.MageFrame");
         return mageFrame == null ? null
                 : xmageaccess.util.ReflectionUtils.getField(null, mageFrame, "activeFrame", Component.class);
+    }
+
+    /**
+     * XMage's panes from front to back: the one in front first, then the
+     * other visible panes on the desktop's default layer in z-order — the
+     * order {@code MageFrame.getTopMost} picks the next pane from. Empty while
+     * XMage shows no pane at all, as after a disconnect. Package-private for
+     * HandoverHarness.
+     */
+    static List<Component> panesFrontToBack() {
+        List<Component> panes = new ArrayList<>();
+        Component front = activePane();
+        if (front == null) return panes;
+        panes.add(front);
+        Object desktop = xmageaccess.util.ReflectionUtils.callStatic("mage.client.MageFrame", "getDesktop");
+        if (desktop instanceof JLayeredPane) {
+            // getComponentsInLayer walks the components by index, and a
+            // component's index in its container is its z-order: 0 in front.
+            for (Component pane : ((JLayeredPane) desktop).getComponentsInLayer(JLayeredPane.DEFAULT_LAYER)) {
+                if (pane != front && pane.isVisible()) {
+                    panes.add(pane);
+                }
+            }
+        }
+        return panes;
+    }
+
+    /**
+     * The window for the frontmost of {@code panes} that has one showing, or
+     * null. Package-private for HandoverHarness.
+     */
+    static Window windowForPanes(List<? extends Component> panes,
+                                 Map<? extends Component, ? extends Window> windows) {
+        for (Component pane : panes) {
+            Window window = windowForPane(pane, windows);
+            if (window != null) return window;
+        }
+        return null;
     }
 
     /** Every accessible window the agent has open, keyed by the XMage panel it belongs to. */
@@ -641,11 +698,19 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
         lobbyAnnounced = false;
     }
 
+    /**
+     * The waiting room gets a window of its own, like the lobby, and takes the
+     * keyboard: the user has just created or joined the table. When XMage
+     * closes the dialog the keyboard is handed on after leaving, but not when
+     * the table starts, since the match or tournament window takes it then.
+     */
     private void attachTableWaitingDialog(Component dialog) {
         System.out.println("[XMage Access] Table waiting dialog detected.");
-        TableWaitingDialogHandler handler = new TableWaitingDialogHandler(dialog);
-        handler.attach();
-        attachedHandlers.put(dialog, handler);
+        final AccessibleTableWaitingWindow window = new AccessibleTableWaitingWindow(dialog);
+        window.setVisible(true);
+        window.announceWelcome();
+        attachedHandlers.put(dialog, window);
+        returnKeyboardOnClose(window, window::handsKeyboardOnWhenClosed);
     }
 
     private void attachDeckGeneratorDialog(Component dialog) {
@@ -931,13 +996,6 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
         }
     }
 
-    private void attachRandomPacksSelectorDialog(Component dialog) {
-        System.out.println("[XMage Access] Random packs selector detected.");
-        RandomPacksSelectorDialogHandler handler = new RandomPacksSelectorDialogHandler(dialog);
-        handler.attach();
-        attachedHandlers.put(dialog, handler);
-    }
-
     /**
      * Called when a previously attached component is no longer visible.
      */
@@ -962,8 +1020,8 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
             ((DeckGeneratorDialogHandler) handler).detach();
         } else if (handler instanceof DownloadImagesDialogHandler) {
             ((DownloadImagesDialogHandler) handler).detach();
-        } else if (handler instanceof TableWaitingDialogHandler) {
-            ((TableWaitingDialogHandler) handler).detach();
+        } else if (handler instanceof AccessibleTableWaitingWindow) {
+            ((AccessibleTableWaitingWindow) handler).dispose();
         } else if (handler instanceof SideboardingHandler) {
             SideboardingHandler sbWindow = sideboardingWindows.remove(comp);
             if (sbWindow != null) {
@@ -1020,8 +1078,6 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
             ((FormDialogHandler) handler).detach();
         } else if (handler instanceof WhatsNewDialogHandler) {
             ((WhatsNewDialogHandler) handler).detach();
-        } else if (handler instanceof RandomPacksSelectorDialogHandler) {
-            ((RandomPacksSelectorDialogHandler) handler).detach();
         }
     }
 }

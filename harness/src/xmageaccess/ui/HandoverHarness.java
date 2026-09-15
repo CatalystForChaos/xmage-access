@@ -3,11 +3,14 @@ package xmageaccess.ui;
 import mage.client.MageFrame;
 import mage.client.MagePane;
 
+import javax.swing.JDesktopPane;
 import javax.swing.JFrame;
+import javax.swing.JLayeredPane;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import java.awt.Component;
 import java.awt.Window;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -21,6 +24,13 @@ import java.util.Map;
  * So a finished game hands the keyboard to the lobby while XMage shows the
  * lobby, and to the tournament while it shows that. A window that is no
  * longer showing is not brought back, and without a pane nothing is chosen.
+ *
+ * And what happens when the pane in front has no window showing. After a
+ * game XMage shows the topmost pane that is left, which on 15 September was a
+ * deck editor whose window had been closed long before; the log said
+ * "handing the keyboard to nobody". The choice now moves on to the panes
+ * behind it, front to back as they sit on MageFrame.getDesktop(), which is
+ * the order MageFrame.getTopMost ranks them by.
  *
  * The timing half, waiting for the window manager to settle the close and
  * then asking whether an agent window already has the keyboard, needs a
@@ -94,8 +104,52 @@ public class HandoverHarness {
         check("nor for a pane no accessible window belongs to",
                 UIWatcher.windowForPane(new MagePane(), windows) == null);
 
+        System.out.println("Looking past a pane whose window is closed");
+        final JPanel deckEditorPanel = new JPanel();
+        final MagePane deckEditorPane = paneHolding(deckEditorPanel);
+        final JFrame[] closedByUser = new JFrame[1];
+        SwingUtilities.invokeAndWait(() -> {
+            closedByUser[0] = offScreenFrame(false);   // the deck editor's window, closed long ago
+            windows.put(deckEditorPanel, closedByUser[0]);
+        });
+        // The evening of 15 September: the lobby, then the deck editor, then
+        // a game, each put in front as XMage opens it.
+        JDesktopPane desktop = MageFrame.getDesktop();
+        for (MagePane pane : new MagePane[]{tablesPane, deckEditorPane, gamePane}) {
+            desktop.add(pane, JLayeredPane.DEFAULT_LAYER);
+            pane.setVisible(true);
+            MageFrame.setActive(pane);
+        }
+        // The game ends: MagePane.removeFrame hides the game's pane, has
+        // MageFrame.deactivate put the topmost pane left in front, and takes
+        // the game's pane off the desktop.
+        gamePane.setVisible(false);
+        MageFrame.setActive(deckEditorPane);
+        desktop.remove(gamePane);
+
+        check("XMage's panes are read front to back",
+                UIWatcher.panesFrontToBack().equals(Arrays.<Component>asList(deckEditorPane, tablesPane)));
+        check("the pane in front leads nowhere by itself, as in the log",
+                UIWatcher.windowForPane(UIWatcher.activePane(), windows) == null);
+        check("so the keyboard goes to the lobby behind it",
+                UIWatcher.windowForPanes(UIWatcher.panesFrontToBack(), windows) == frames[0]);
+
+        desktop.add(tournamentPane, JLayeredPane.DEFAULT_LAYER);
+        tournamentPane.setVisible(true);
+        MageFrame.setActive(tournamentPane);
+        MageFrame.setActive(deckEditorPane);
+        check("a pane nearer the front comes before the lobby",
+                UIWatcher.windowForPanes(UIWatcher.panesFrontToBack(), windows) == frames[1]);
+        tournamentPane.setVisible(false);
+        check("a hidden pane is passed over",
+                UIWatcher.windowForPanes(UIWatcher.panesFrontToBack(), windows) == frames[0]);
+        MageFrame.setActive(null);
+        check("nothing is chosen while XMage shows nothing",
+                UIWatcher.panesFrontToBack().isEmpty());
+
         SwingUtilities.invokeAndWait(() -> {
             for (JFrame frame : frames) frame.dispose();
+            closedByUser[0].dispose();
         });
 
         System.out.println();
