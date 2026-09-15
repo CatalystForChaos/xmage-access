@@ -21,6 +21,7 @@ public class ZoneItem {
         WATCH_MATCH,
         NEXT_PAGE,
         PREV_PAGE,
+        OPEN_LINK,
         NONE
     }
 

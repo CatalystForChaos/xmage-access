@@ -57,14 +57,17 @@ A mouse event stands in for the key event there only because key events posted
 to an unfocused component are swallowed by the focus manager;
 `DefaultButtonModel.setPressed` treats both the same, as `InputEvent`.
 
-**`WhatsNewHarness`** — the news dialog's reading path. The page text can only
-be taken off a `WebEngine` on the JavaFX application thread, so this shows the
-fetch really goes through `Platform.runLater` and `executeScript`, that the
-reading cursor gets paragraphs rather than markup, that Ctrl+B hands XMage's
-own `WHATS_NEW_PAGE` constant to `AppUtil.openUrlInSystemBrowser`, that Ctrl+C
-copies the page with its line breaks intact, that Ctrl+Enter reaches the
-dialog's Close button, and that a page which yielded nothing is reported as
-missing instead of copied as an empty string.
+**`WhatsNewHarness`** — the news window. The page can only be read off a
+`WebEngine` on the JavaFX application thread, so this shows the fetch really
+goes through `Platform.runLater` and `executeScript`, with a script that walks
+headings, paragraphs and list items; that the blocks come back as rows in page
+order, headings and links saying what they are, and the headings as the
+Sections list, where Enter selects the heading in the news; that Enter on a
+line with a link hands exactly that link to `AppUtil.openUrlInSystemBrowser`,
+and the first action XMage's own `WHATS_NEW_PAGE`; that copying gives the page
+as text, closing goes through the dialog's Close button once, a page that
+yielded nothing says so, and the handler holds no keyboard dispatcher any
+more. The script itself needs WebKit; `NewsScriptProbe`, below, runs it.
 
 **`DraftWindowHarness`** — the draft window's pick. It shows the booster is
 read by asking each card panel in the grid for its CardView, that the pool
@@ -132,3 +135,31 @@ notifying any `ActionListener` — the same defect `FilterHarness` pins, avoided
 by construction this time — that select-all and select-none go through XMage's
 own buttons, and that an empty pool is refused before the Apply button is
 clicked, since XMage answers that with a `JOptionPane` nobody would hear.
+
+## Probes
+
+Some questions only the client's own runtime can answer. A probe is a plain
+`main` class run in XMage's bundled Java against the built JAR — no running
+client needed. Probes live in `probes/`, apart from the harnesses, so the
+harness command above never compiles them.
+
+**`NewsScriptProbe`** — the script the news window runs inside XMage's news
+page. The harness can only check that the script is sent; what it returns
+needs WebKit. The probe takes `READ_BLOCKS_SCRIPT` out of the built JAR by
+reflection, loads a page into a `WebView`, runs the script and prints the
+result.
+
+```sh
+JRE=~/Downloads/mage/java/jre1.8.0_201    # the client's Java 8, with JavaFX
+OUT=/tmp/xmage-access-probe
+javac -cp "$JRE/lib/ext/jfxrt.jar;target/xmage-access-0.1.0.jar" -d "$OUT" \
+  harness/probes/NewsScriptProbe.java
+"$JRE/bin/java" -cp "$OUT;target/xmage-access-0.1.0.jar" NewsScriptProbe news.html 60
+```
+
+The `WebView` has to sit in a `Scene` in a `JFXPanel` inside a Swing frame,
+the way `WhatsNewDialog` builds its own: a bare `WebEngine` stayed in RUNNING
+and never loaded even a ten-line local page. Set up like XMage's, a copy of
+the live news page saved on 15 September — its external scripts removed, so
+nothing waited on the network — loaded in seconds, and the script returned 415
+blocks, 26 of them headings and 15 with a link.

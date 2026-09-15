@@ -269,8 +269,8 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
                     || handler instanceof JoinTableDialogHandler
                     || handler instanceof ErrorDialogHandler
                     || handler instanceof FormDialogHandler
-                    // Both are modal and both own Ctrl+R, Ctrl+C and the
-                    // arrow keys while they are up.
+                    // Both are modal. The pack selector owns Ctrl+R and the
+                    // arrow keys while it is up; the news has its own window.
                     || handler instanceof WhatsNewDialogHandler
                     || handler instanceof RandomPacksSelectorDialogHandler) {
                 return true;
@@ -926,6 +926,9 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
         WhatsNewDialogHandler handler = new WhatsNewDialogHandler(dialog);
         handler.attach();
         attachedHandlers.put(dialog, handler);
+        if (handler.getWindow() != null) {
+            returnKeyboardOnClose(handler.getWindow());
+        }
     }
 
     private void attachRandomPacksSelectorDialog(Component dialog) {

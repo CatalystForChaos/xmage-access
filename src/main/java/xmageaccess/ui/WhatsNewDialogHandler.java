@@ -6,15 +6,12 @@ import xmageaccess.util.Log;
 
 import javax.swing.JButton;
 import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 import java.awt.Component;
-import java.awt.KeyEventDispatcher;
-import java.awt.KeyboardFocusManager;
-import java.awt.Window;
-import java.awt.event.KeyEvent;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
+import static xmageaccess.util.ReflectionUtils.callMethod;
 import static xmageaccess.util.ReflectionUtils.callMethodWithArg;
 import static xmageaccess.util.ReflectionUtils.callStaticVoid;
 import static xmageaccess.util.ReflectionUtils.findFieldDeep;
@@ -28,179 +25,184 @@ import static xmageaccess.util.ReflectionUtils.getField;
  * from the tables panel, the connect dialog and the about dialog.
  *
  * <p>The dialog is modal and its content is a JavaFX WebView, so a screen
- * reader finds nothing in it whatsoever — the client simply appears to stop
- * responding. This handler says what opened, reads the page out of the
- * WebView's own DOM line by line, and offers the system browser for the real
- * thing, links included.
+ * reader finds nothing in it whatsoever. This handler takes the page out of
+ * the WebView's own DOM as blocks — headings, paragraphs and list items,
+ * each with its first link — and puts them in an {@link AccessibleNewsWindow}.
+ * It binds no keys of its own any more; the window is the way in.
  *
- * <p>Reading the page means asking the WebEngine for
- * {@code document.body.innerText}, which is only legal on the JavaFX
- * application thread. The text is therefore fetched through
- * {@code Platform.runLater} and cached; nothing here blocks the EDT. XMage
- * only shows the dialog once its {@code isPageReady} flag is set, so the DOM
- * is loaded by the time we ask.
- *
- * Keyboard shortcuts:
- *   Ctrl+Down/Up  - Next / previous line of the news (text only, no position)
- *   Ctrl+R        - Read the current line again, with its position
- *   Ctrl+Shift+R  - Read the whole page
- *   Ctrl+B        - Open the news page in the system browser
- *   Ctrl+C        - Copy the news text to the clipboard
- *   Ctrl+Enter    - Close (Escape, XMage's own binding, does the same)
+ * <p>Reading the DOM is only legal on the JavaFX application thread, so the
+ * blocks are fetched through {@code Platform.runLater} and handed to the EDT.
+ * XMage only shows the dialog once its {@code isPageReady} flag is set, so
+ * the page has loaded by the time we ask. The window opens when the blocks
+ * arrive, or after {@link #OPEN_TIMEOUT_MS} without them, and then says the
+ * text could not be read and offers the system browser.
  */
 public class WhatsNewDialogHandler {
 
     private static final String APP_UTIL = "mage.client.util.AppUtil";
     private static final String PLATFORM = "javafx.application.Platform";
 
-    /** Rendered text if the engine offers it, raw text nodes otherwise. */
-    private static final String READ_BODY_SCRIPT =
-            "(function(){var b=document.body;"
-                    + "if(!b)return '';return b.innerText||b.textContent||'';})()";
+    /** How long the window waits for the page text before opening without it. */
+    static final int OPEN_TIMEOUT_MS = 3000;
+
+    /**
+     * Runs in the page and returns one line per block: "h" or "t", a tab, the
+     * block's text, a tab, the first http link in it. It walks headings,
+     * paragraphs and list items in document order. A heading takes all of
+     * its text — XMage's page puts a post's title in a div inside the h2. A
+     * paragraph or list item takes its own text only, leaving out nested
+     * lists, paragraphs and headings, which are blocks of their own; its link
+     * likewise. With no such blocks at all it falls back to the rendered
+     * text, a block per line.
+     */
+    static final String READ_BLOCKS_SCRIPT = "(function(){"
+            + "var b=document.body;if(!b)return '';"
+            + "function clean(s){return (s||'').replace(/\\s+/g,' ').replace(/^ | $/g,'');}"
+            + "function own(el){var s='';"
+            + "for(var n=el.firstChild;n;n=n.nextSibling){"
+            + "if(n.nodeType===3){s+=n.nodeValue;}"
+            + "else if(n.nodeType===1&&!/^(UL|OL|P|H[1-6]|SCRIPT|STYLE)$/.test(n.tagName)){"
+            + "s+=(/^(DIV|BR)$/.test(n.tagName)?' '+own(n)+' ':own(n));}}"
+            + "return s;}"
+            + "function link(el){var as=el.getElementsByTagName('a');"
+            + "for(var i=0;i<as.length;i++){var h=as[i].getAttribute('href');"
+            + "if(!h||h.indexOf('http')!==0)continue;"
+            + "var p=as[i].parentNode;"
+            + "while(p&&p!==el&&!/^(UL|OL|P|H[1-6])$/.test(p.tagName)){p=p.parentNode;}"
+            + "if(p===el)return h;}"
+            + "return '';}"
+            + "var out=[],els=b.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li');"
+            + "for(var i=0;i<els.length;i++){var el=els[i],hd=/^H[1-6]$/.test(el.tagName);"
+            + "var t=clean(hd?el.textContent:own(el));"
+            + "if(t)out.push((hd?'h':'t')+'\\t'+t+'\\t'+link(el));}"
+            + "if(!out.length){var ls=(b.innerText||b.textContent||'').split('\\n');"
+            + "for(var j=0;j<ls.length;j++){var l=clean(ls[j]);if(l)out.push('t\\t'+l+'\\t');}}"
+            + "return out.join('\\n');})()";
 
     private final Component dialog;
+    private final boolean showWindow;
     private JButton buttonCancel;
-    private KeyEventDispatcher keyDispatcher;
+    private AccessibleNewsWindow window;
+    private Timer openTimer;
+    private boolean opened;
+    private boolean closed;
 
-    /** Both written on the JavaFX thread, read on the EDT. */
-    private volatile String rawText;
-    private volatile List<String> lines;
-
-    private int cursor = -1;
+    /** The page as plain text, a line per block, for the clipboard. */
+    private String pageText;
 
     public WhatsNewDialogHandler(Component dialog) {
+        this(dialog, true);
+    }
+
+    /** With {@code showWindow} false the window is built and filled but never shown: WhatsNewHarness. */
+    WhatsNewDialogHandler(Component dialog, boolean showWindow) {
         this.dialog = dialog;
+        this.showWindow = showWindow;
     }
 
     public void attach() {
         try {
             buttonCancel = findFieldTyped(dialog, "buttonCancel", JButton.class);
-            loadNewsText();
-            addKeyboardShortcuts();
-            speak("What's new. XMage's news page opened. "
-                    + "Ctrl+Down reads it line by line, Ctrl+B opens it in your browser, "
-                    + "Ctrl+C copies it, Escape closes.");
+            window = new AccessibleNewsWindow(this);
+            openTimer = new Timer(OPEN_TIMEOUT_MS, e -> openWindow());
+            openTimer.setRepeats(false);
+            openTimer.start();
+            loadPage();
         } catch (Exception e) {
             Log.warn("WhatsNew", "attach failed", e);
         }
     }
 
     public void detach() {
-        if (keyDispatcher != null) {
-            KeyboardFocusManager.getCurrentKeyboardFocusManager()
-                    .removeKeyEventDispatcher(keyDispatcher);
-            keyDispatcher = null;
+        closed = true;
+        if (openTimer != null) {
+            openTimer.stop();
+            openTimer = null;
         }
+        if (window != null) {
+            window.dispose();
+        }
+    }
+
+    /** The accessible window, once attached; UIWatcher watches it close. */
+    AccessibleNewsWindow getWindow() {
+        return window;
     }
 
     // ---- reading the page ------------------------------------------------
 
-    /**
-     * Asks the WebEngine for the page text on the JavaFX thread. Fire and
-     * forget: whatever comes back lands in {@link #rawText} and
-     * {@link #lines}, and the read shortcuts use it once it is there.
-     */
-    private void loadNewsText() {
+    private void loadPage() {
         final Object engine = findFieldDeep(dialog, "engine");
         if (engine == null) {
             Log.warn("WhatsNew", "no web engine on the dialog, page text unavailable");
+            pageArrived(null);
             return;
         }
         boolean queued = callStaticVoid(PLATFORM, "runLater",
                 new Class[]{Runnable.class}, new Runnable() {
                     @Override
                     public void run() {
-                        Object text = callMethodWithArg(engine, "executeScript",
-                                String.class, READ_BODY_SCRIPT);
-                        if (text == null) return;
-                        List<String> split = splitLines(text.toString());
-                        if (split.isEmpty()) return;
-                        rawText = text.toString();
-                        lines = split;
+                        Object result = callMethodWithArg(engine, "executeScript",
+                                String.class, READ_BLOCKS_SCRIPT);
+                        final String encoded = result != null ? result.toString() : null;
+                        SwingUtilities.invokeLater(new Runnable() {
+                            @Override
+                            public void run() {
+                                pageArrived(encoded);
+                            }
+                        });
                     }
                 });
         if (!queued) {
             Log.warn("WhatsNew", "JavaFX unavailable, cannot read the page text");
+            pageArrived(null);
         }
     }
 
-    /** Paragraph-ish units: the engine's own line breaks, blanks dropped. */
-    private static List<String> splitLines(String text) {
-        List<String> out = new ArrayList<>();
-        for (String line : text.split("\\R")) {
-            String trimmed = line.replaceAll("\\s+", " ").trim();
-            if (!trimmed.isEmpty()) out.add(trimmed);
+    private void pageArrived(String encoded) {
+        if (closed || window == null) return;
+        List<AccessibleNewsWindow.Block> blocks = parseBlocks(encoded);
+        Log.event("WhatsNew", "page read: " + blocks.size() + " blocks");
+
+        StringBuilder text = new StringBuilder();
+        for (AccessibleNewsWindow.Block block : blocks) {
+            if (text.length() > 0) text.append('\n');
+            text.append(block.text);
         }
-        return out;
+        pageText = text.toString();
+
+        boolean late = opened;
+        window.setBlocks(blocks);
+        openWindow();
+        if (late && !blocks.isEmpty()) {
+            speak("The news text is ready: " + blocks.size() + " lines in What's new.");
+        }
     }
 
-    List<String> newsLines() {
-        List<String> text = lines;
-        return text != null ? text : Collections.<String>emptyList();
+    /** The script's lines back into blocks; malformed and empty lines are skipped. */
+    static List<AccessibleNewsWindow.Block> parseBlocks(String encoded) {
+        List<AccessibleNewsWindow.Block> blocks = new ArrayList<>();
+        if (encoded == null) return blocks;
+        for (String line : encoded.split("\n")) {
+            String[] parts = line.split("\t", -1);
+            if (parts.length < 2) continue;
+            String text = parts[1].trim();
+            if (text.isEmpty()) continue;
+            String link = parts.length > 2 ? parts[2].trim() : "";
+            blocks.add(new AccessibleNewsWindow.Block("h".equals(parts[0]), text,
+                    link.startsWith("http") ? link : null));
+        }
+        return blocks;
     }
 
-    private void move(int direction) {
-        List<String> text = newsLines();
-        if (text.isEmpty()) {
-            notReady();
-            return;
-        }
-        int next = cursor + direction;
-        if (next < 0) {
-            speak("Start of the news.");
-            return;
-        }
-        if (next >= text.size()) {
-            speak("End of the news.");
-            return;
-        }
-        cursor = next;
-        speak(text.get(cursor));
+    private void openWindow() {
+        if (opened || closed || window == null) return;
+        opened = true;
+        if (openTimer != null) openTimer.stop();
+        if (showWindow) window.open();
     }
 
-    private void readCurrentLine() {
-        List<String> text = newsLines();
-        if (text.isEmpty()) {
-            notReady();
-            return;
-        }
-        if (cursor < 0) {
-            speak(text.size() + " lines. Ctrl+Down starts reading.");
-            return;
-        }
-        speak("Line " + (cursor + 1) + " of " + text.size() + ". " + text.get(cursor));
-    }
-
-    private void readWholePage() {
-        List<String> text = newsLines();
-        if (text.isEmpty()) {
-            notReady();
-            return;
-        }
-        speak(joinLines(text));
-    }
-
-    private static String joinLines(List<String> text) {
-        StringBuilder sb = new StringBuilder();
-        for (String line : text) {
-            if (sb.length() > 0) sb.append(' ');
-            sb.append(line);
-        }
-        return sb.toString();
-    }
-
-    /**
-     * The fetch runs on the JavaFX thread, so a read can arrive first. Ask
-     * again — a second attempt costs nothing and covers a page that finished
-     * loading late.
-     */
-    private void notReady() {
-        loadNewsText();
-        speak("The news text is not ready yet. Try again in a moment, "
-                + "or press Ctrl+B to read it in your browser.");
-    }
-
-    // ---- actions ---------------------------------------------------------
+    // ---- what the rows do ------------------------------------------------
 
     void openInBrowser() {
         String url = getField(null, dialog.getClass(), "WHATS_NEW_PAGE", String.class);
@@ -208,88 +210,51 @@ public class WhatsNewDialogHandler {
             speak("The news address is not available.");
             return;
         }
+        openUrl(url, "Opening the news page in your browser.");
+    }
+
+    /** XMage's own page opens only http links, in the system browser; so does this. */
+    void openLink(String url) {
+        if (url == null || !url.startsWith("http")) {
+            speak("No link on this line.");
+            return;
+        }
+        openUrl(url, "Opening the link in your browser.");
+    }
+
+    private void openUrl(String url, String confirmation) {
         if (callStaticVoid(APP_UTIL, "openUrlInSystemBrowser", new Class[]{String.class}, url)) {
-            speak("Opening the news page in your browser.");
+            speak(confirmation);
         } else {
             speak("Could not open the browser.");
         }
     }
 
     void copyToClipboard() {
-        String text = rawText;
-        if (text == null) {
-            notReady();
+        if (pageText == null || pageText.isEmpty()) {
+            speak("There is no news text to copy. The browser has the page.");
             return;
         }
-        if (callStaticVoid(APP_UTIL, "setClipboardData", new Class[]{String.class}, text)) {
+        if (callStaticVoid(APP_UTIL, "setClipboardData", new Class[]{String.class}, pageText)) {
             speak("News copied to the clipboard.");
         } else {
             speak("Could not copy the news.");
         }
     }
 
-    void close() {
-        if (buttonCancel == null || !buttonCancel.isEnabled()) {
-            speak("Cannot close. Press Escape.");
-            return;
-        }
-        speak("Closing.");
-        buttonCancel.doClick();
-    }
-
-    // ---- keyboard --------------------------------------------------------
-
-    private void addKeyboardShortcuts() {
-        keyDispatcher = e -> {
-            if (e.getID() != KeyEvent.KEY_PRESSED) return false;
-            if (!isDialogActive()) return false;
-            if (!e.isControlDown() || e.isAltDown()) return false;
-
-            if (e.isShiftDown()) {
-                if (e.getKeyCode() == KeyEvent.VK_R) {
-                    readWholePage();
-                    return true;
-                }
-                return false;
-            }
-
-            switch (e.getKeyCode()) {
-                case KeyEvent.VK_DOWN:
-                    move(1);
-                    return true;
-                case KeyEvent.VK_UP:
-                    move(-1);
-                    return true;
-                case KeyEvent.VK_R:
-                    readCurrentLine();
-                    return true;
-                case KeyEvent.VK_B:
-                    openInBrowser();
-                    return true;
-                case KeyEvent.VK_C:
-                    copyToClipboard();
-                    return true;
-                case KeyEvent.VK_ENTER:
-                    close();
-                    return true;
-                default:
-                    return false;
-            }
-        };
-        KeyboardFocusManager.getCurrentKeyboardFocusManager()
-                .addKeyEventDispatcher(keyDispatcher);
-    }
-
     /**
-     * The dialog is a JInternalFrame on XMage's desktop, so "active" means
-     * the main window has focus — not one of the agent's own windows.
+     * Closes the news through XMage's own Close button, then this window.
+     * Where the keyboard goes next is UIWatcher's hand-over, as for any
+     * window of the agent's that closes.
      */
-    private boolean isDialogActive() {
-        if (!dialog.isVisible()) return false;
-        Window active = KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
-        if (active == null) return false;
-        if (dialog instanceof Window) return dialog == active;
-        return SwingUtilities.getWindowAncestor(dialog) == active;
+    void close() {
+        if (closed) return;
+        if (buttonCancel != null && buttonCancel.isEnabled()) {
+            buttonCancel.doClick();
+        } else {
+            callMethod(dialog, "hideDialog");
+        }
+        detach();
     }
 
     private void speak(String text) {

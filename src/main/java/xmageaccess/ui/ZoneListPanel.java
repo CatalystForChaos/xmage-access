@@ -21,6 +21,7 @@ public class ZoneListPanel extends JPanel {
     private final DefaultListModel<ZoneItem> model;
     private final String zoneName;
     private boolean isRefreshing = false;
+    private String nextFocusAnnouncement;
 
     public ZoneListPanel(String zoneName) {
         this.zoneName = zoneName;
@@ -52,7 +53,10 @@ public class ZoneListPanel extends JPanel {
             public void focusGained(FocusEvent e) {
                 if (!isRefreshing) {
                     int count = model.getSize();
-                    speak(zoneName + ". " + count + (count == 1 ? " item." : " items."));
+                    String once = nextFocusAnnouncement;
+                    nextFocusAnnouncement = null;
+                    speak(once != null ? once
+                            : zoneName + ". " + count + (count == 1 ? " item." : " items."));
                     if (count > 0 && list.getSelectedIndex() < 0) {
                         list.setSelectedIndex(0);
                     }
@@ -179,6 +183,32 @@ public class ZoneListPanel extends JPanel {
 
     public String getZoneName() {
         return zoneName;
+    }
+
+    /**
+     * Says {@code text} in place of the zone's name and count the next time
+     * this list takes the focus, once: a window's opening sentence, or the
+     * row a jump landed on. It is spoken from the focus event itself, so it
+     * cannot race the name-and-count announcement it replaces.
+     */
+    public void announceOnNextFocus(String text) {
+        nextFocusAnnouncement = text;
+    }
+
+    /** What {@link #announceOnNextFocus} left waiting, if anything. Package-private for WhatsNewHarness. */
+    String pendingFocusAnnouncement() {
+        return nextFocusAnnouncement;
+    }
+
+    /** Selects a row and scrolls to it without the agent reading it out. */
+    public void selectQuietly(int index) {
+        isRefreshing = true;
+        try {
+            list.setSelectedIndex(index);
+            list.ensureIndexIsVisible(index);
+        } finally {
+            isRefreshing = false;
+        }
     }
 
     private void speak(String text) {
