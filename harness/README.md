@@ -82,15 +82,20 @@ watching exactly when XMage's own action cell says "Watch", and that watching
 hands that row's table id to `SessionHandler.watchTournamentTable`.
 
 **`ZoneListHarness`** — the refresh every zone in every window goes
-through. The polling timers rebuild the lists whether or not anything
-changed, and clearing and refilling a JList fires accessibility events at the
-screen reader either way — which is what made it talk over itself while you
-were reading. This pins that a refresh changing nothing leaves the very same
-item objects in the model (identity is the test: if they are still those
-objects, nothing was rebuilt) and the selection where it was, and that a
-changed name, a changed detail, a shorter list, or a row that reads the same
-but points at a different object all still go through, since Enter would
-otherwise act on the previous game.
+through, and what it tells the screen reader. Clearing and refilling a JList
+moves the selection off its row and back, and JList's accessible context
+reports each move as a new active descendant — which is what made the zones
+talk over themselves while you were reading. This counts the selection
+events and the accessible selection and active-descendant changes a refresh
+fires, and pins that there are none when rows are unchanged, replaced in
+place, added at the end or removed below the cursor; the selection moves
+only when its own row goes. Identity shows which rows were replaced: an
+unchanged row is still the very same object. It also pins what counts as a
+change — a row that reads the same but points at a different object is
+replaced, since Enter would otherwise act on the previous game, while a
+button row rebuilt around an equal array is not — and what the agent reads
+out: a row that stands for something and changed under the cursor while its
+list has the keyboard, never an information row such as the draft clock.
 
 **`FocusHarness`** — the window-focus helpers, and the only harness that
 needs no stubs: it is about the JDK, not about XMage. Every panel-level

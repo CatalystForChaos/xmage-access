@@ -75,55 +75,98 @@ public class ZoneListPanel extends JPanel {
     }
 
     /**
-     * Refreshes the list content, preserving the selection position.
+     * Refreshes the list content, keeping the user where they are and
+     * telling the screen reader as little as possible.
      *
-     * <p>A refresh that would change nothing is dropped before it touches
-     * the model. The zones are rebuilt by polling timers — once a second in
-     * the draft, every five in the lobby and the game — and clearing and
-     * refilling a JList fires accessibility events at the screen reader
-     * whether or not anything is different. Rebuilding only on a real
-     * change is what keeps it quiet while you read.
+     * <p>Every zone is refreshed by a polling timer, some once a second, and
+     * what a screen reader hears depends on how the model changes rather
+     * than on whether anything looks different. Clearing and refilling the
+     * list takes the selection off its row and puts it back, and JList's
+     * accessible context reports each of those moves as a new active
+     * descendant, which a screen reader answers by reading the row again.
+     * So nothing is cleared. An unchanged row stays as it is; a changed row
+     * is replaced in place, which fires a contents change and no selection
+     * event; rows come and go only at the end. The selection moves only when
+     * its own row went away, and then to the nearest row left.
+     *
+     * <p>A row that changed under the cursor while this list has the
+     * keyboard is read out by the agent — but only a row that stands for
+     * something: a card, a button, a match. Rows without a source object are
+     * information, such as the draft clock, the chat or the game log; they
+     * change silently and read current when you arrive on them.
      */
     public void updateItems(List<ZoneItem> items) {
-        if (sameAsShown(items)) return;
-
+        if (items == null) items = java.util.Collections.emptyList();
+        ZoneItem changedUnderCursor = null;
         isRefreshing = true;
         try {
-            int prevIndex = list.getSelectedIndex();
-            model.clear();
-            for (ZoneItem item : items) {
-                model.addElement(item);
+            int selected = list.getSelectedIndex();
+            int common = Math.min(model.getSize(), items.size());
+            for (int i = 0; i < common; i++) {
+                ZoneItem now = model.get(i);
+                ZoneItem next = items.get(i);
+                if (sameRow(now, next)) continue;
+                model.set(i, next);
+                if (i == selected && next != null && next.getSourceObject() != null
+                        && (now == null || !java.util.Objects.equals(
+                                now.getDisplayName(), next.getDisplayName()))) {
+                    changedUnderCursor = next;
+                }
             }
-            if (prevIndex >= 0 && prevIndex < model.getSize()) {
-                list.setSelectedIndex(prevIndex);
-            } else if (model.getSize() > 0) {
-                list.setSelectedIndex(0);
+            if (model.getSize() > items.size()) {
+                model.removeRange(items.size(), model.getSize() - 1);
+            }
+            for (int i = common; i < items.size(); i++) {
+                model.addElement(items.get(i));
+            }
+            if (list.getSelectedIndex() < 0 && model.getSize() > 0) {
+                list.setSelectedIndex(selected >= 0 ? Math.min(selected, model.getSize() - 1) : 0);
             }
         } finally {
             isRefreshing = false;
         }
+        if (changedUnderCursor != null && hasKeyboard()) {
+            announceChange(changedUnderCursor.getDisplayName());
+        }
     }
 
     /**
-     * True when the list already shows exactly these items — same order,
-     * same spoken text, same detail, same object behind each row. The
-     * source object is part of the comparison because it is what an action
-     * is sent to: a row that reads the same but points somewhere else has
-     * to be replaced, or Enter would act on the previous game.
+     * Whether a row can stay as it is: the same spoken text, detail and
+     * action, and the same object behind it. The object is what an action is
+     * sent to, so a row that reads the same but points somewhere else is
+     * replaced, or Enter would act on the previous game. Arrays compare by
+     * content: the game window builds a fresh one for every button row on
+     * every refresh, which made its Actions zone count as changed each time.
      */
-    private boolean sameAsShown(List<ZoneItem> items) {
-        if (items == null || items.size() != model.getSize()) return false;
-        for (int i = 0; i < items.size(); i++) {
-            ZoneItem now = model.get(i);
-            ZoneItem next = items.get(i);
-            if (next == null || now == null) return false;
-            if (!java.util.Objects.equals(now.getDisplayName(), next.getDisplayName())) return false;
-            if (!java.util.Objects.equals(now.getDetailText(), next.getDetailText())) return false;
-            if (now.getSourceObject() != next.getSourceObject()
-                    && !java.util.Objects.equals(now.getSourceObject(), next.getSourceObject())) return false;
-            if (now.getActionType() != next.getActionType()) return false;
+    private static boolean sameRow(ZoneItem now, ZoneItem next) {
+        if (now == next) return true;
+        if (now == null || next == null) return false;
+        if (!java.util.Objects.equals(now.getDisplayName(), next.getDisplayName())) return false;
+        if (!java.util.Objects.equals(now.getDetailText(), next.getDetailText())) return false;
+        if (now.getActionType() != next.getActionType()) return false;
+        Object a = now.getSourceObject();
+        Object b = next.getSourceObject();
+        if (a instanceof Object[] && b instanceof Object[]) {
+            return java.util.Arrays.equals((Object[]) a, (Object[]) b);
         }
-        return true;
+        return java.util.Objects.equals(a, b);
+    }
+
+    /** Whether this list has the keyboard. Package-private so ZoneListHarness can stand in. */
+    boolean hasKeyboard() {
+        return list.isFocusOwner();
+    }
+
+    /**
+     * Reads out a row that changed under the cursor — queued, so it does not
+     * cut off the confirmation of whatever changed it. Package-private so
+     * ZoneListHarness can listen.
+     */
+    void announceChange(String text) {
+        SpeechOutput speech = AccessibilityManager.getInstance().getSpeech();
+        if (speech != null) {
+            speech.speakQueued(text);
+        }
     }
 
     public JList<ZoneItem> getList() {

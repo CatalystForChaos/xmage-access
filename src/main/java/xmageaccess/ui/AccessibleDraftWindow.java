@@ -248,7 +248,9 @@ public class AccessibleDraftWindow extends JFrame {
             picksZone.updateItems(picks);
         }
 
-        // Every second, because the clock is one of the rows.
+        // Every second, because the clock is one of the rows. Status rows
+        // carry no source object, so the ticking clock changes silently;
+        // see ZoneListPanel.updateItems.
         statusZone.updateItems(readStatusItems());
     }
 
