@@ -145,16 +145,6 @@ public class AccessibleGameWindow extends JFrame {
         this.chatHelper = helper;
     }
 
-    /** Brings this window forward and puts the caret into the chat input. */
-    public void focusChatInput() {
-        toFront();
-        requestFocus();
-        // Window focus transfer is asynchronous; request the field focus
-        // afterwards or it can get lost when another window was focused.
-        SwingUtilities.invokeLater(() -> chatInput.requestFocusInWindow());
-        speak("Game chat input. Type your message and press Enter to send.");
-    }
-
     private void sendChatMessage() {
         String text = chatInput.getText().trim();
         if (text.isEmpty()) {
@@ -860,6 +850,11 @@ public class AccessibleGameWindow extends JFrame {
             }
         }
         return null;
+    }
+
+    /** Brings this window forward and puts the keyboard in the actions list. */
+    public void takeFocus() {
+        UiUtils.focusAgentWindow(this, actionsZone.getList());
     }
 
     private void returnFocusToXMage() {

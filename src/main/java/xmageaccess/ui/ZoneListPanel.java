@@ -76,8 +76,17 @@ public class ZoneListPanel extends JPanel {
 
     /**
      * Refreshes the list content, preserving the selection position.
+     *
+     * <p>A refresh that would change nothing is dropped before it touches
+     * the model. The zones are rebuilt by polling timers — once a second in
+     * the draft, every five in the lobby and the game — and clearing and
+     * refilling a JList fires accessibility events at the screen reader
+     * whether or not anything is different. Rebuilding only on a real
+     * change is what keeps it quiet while you read.
      */
     public void updateItems(List<ZoneItem> items) {
+        if (sameAsShown(items)) return;
+
         isRefreshing = true;
         try {
             int prevIndex = list.getSelectedIndex();
@@ -93,6 +102,28 @@ public class ZoneListPanel extends JPanel {
         } finally {
             isRefreshing = false;
         }
+    }
+
+    /**
+     * True when the list already shows exactly these items — same order,
+     * same spoken text, same detail, same object behind each row. The
+     * source object is part of the comparison because it is what an action
+     * is sent to: a row that reads the same but points somewhere else has
+     * to be replaced, or Enter would act on the previous game.
+     */
+    private boolean sameAsShown(List<ZoneItem> items) {
+        if (items == null || items.size() != model.getSize()) return false;
+        for (int i = 0; i < items.size(); i++) {
+            ZoneItem now = model.get(i);
+            ZoneItem next = items.get(i);
+            if (next == null || now == null) return false;
+            if (!java.util.Objects.equals(now.getDisplayName(), next.getDisplayName())) return false;
+            if (!java.util.Objects.equals(now.getDetailText(), next.getDetailText())) return false;
+            if (now.getSourceObject() != next.getSourceObject()
+                    && !java.util.Objects.equals(now.getSourceObject(), next.getSourceObject())) return false;
+            if (now.getActionType() != next.getActionType()) return false;
+        }
+        return true;
     }
 
     public JList<ZoneItem> getList() {

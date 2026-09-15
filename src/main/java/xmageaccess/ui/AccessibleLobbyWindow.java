@@ -69,7 +69,6 @@ public class AccessibleLobbyWindow extends JFrame {
     private static final int COL_SKILL     = 10;
     private static final int COL_RATED     = 11;
 
-    private static AccessibleLobbyWindow instance;
 
     public AccessibleLobbyWindow(Component lobbyPanel, JTable activeTable,
                                   JTable playersTable, ChatAccessHelper chatHelper) {
@@ -78,7 +77,6 @@ public class AccessibleLobbyWindow extends JFrame {
         this.activeTable  = activeTable;
         this.playersTable = playersTable;
         this.chatHelper   = chatHelper;
-        instance = this;
 
         actionsZone = new ZoneListPanel("Actions");
         gamesZone   = new ZoneListPanel("Open Games");
@@ -273,7 +271,7 @@ public class AccessibleLobbyWindow extends JFrame {
         }
         int tableRow = gameRowMap.get(listIndex);
         if (activeTable == null || tableRow >= activeTable.getRowCount()) {
-            speak("Game list has changed. Press Ctrl+G to refresh.");
+            speak("The game list has changed. It refreshes by itself; try again.");
             return;
         }
         String status = getCell(activeTable, tableRow, COL_STATUS);
@@ -282,7 +280,7 @@ public class AccessibleLobbyWindow extends JFrame {
         try {
             activeTable.setRowSelectionInterval(tableRow, tableRow);
         } catch (IllegalArgumentException e) {
-            speak("Game list has changed. Press Ctrl+G to refresh.");
+            speak("The game list has changed. It refreshes by itself; try again.");
             return;
         }
         speak(waiting ? "Joining game." : "Watching game.");
@@ -297,7 +295,7 @@ public class AccessibleLobbyWindow extends JFrame {
         }
         int tableRow = gameRowMap.get(listIndex);
         if (activeTable == null || tableRow >= activeTable.getRowCount()) {
-            speak("Game list has changed. Press Ctrl+G to refresh.");
+            speak("The game list has changed. It refreshes by itself; try again.");
             return;
         }
         speak(buildGameDetail(tableRow));
@@ -395,6 +393,14 @@ public class AccessibleLobbyWindow extends JFrame {
                 if (autoHidden && !isVisible()) {
                     autoHidden = false;
                     setVisible(true);
+                    // Back from a game or a draft. The lobby's shortcuts only
+                    // answer while this window is active, so take the keyboard
+                    // — unless the user is already in another accessible
+                    // window, as they are while building a deck after a draft,
+                    // which happens with the lobby tab visible behind it.
+                    if (!xmageaccess.util.UiUtils.isAgentWindowActive()) {
+                        takeFocus();
+                    }
                 }
                 if (!isVisible()) {
                     // Closed by the user — don't refresh a hidden window.
@@ -556,6 +562,18 @@ public class AccessibleLobbyWindow extends JFrame {
 
     // ========== MISC ==========
 
+    /**
+     * Brings this window forward and puts the keyboard in the actions list.
+     * Called when the lobby is announced rather than when the window is
+     * built: the window is created while the connect dialog is still up, so
+     * at that point the dialog owns the focus and this would be lost.
+     */
+    public void takeFocus() {
+        xmageaccess.util.Log.event("Lobby", "takeFocus; window visible: " + isVisible()
+                + ", auto-hidden: " + autoHidden);
+        xmageaccess.util.UiUtils.focusAgentWindow(this, actionsZone.getList());
+    }
+
     private void returnFocusToXMage() {
         xmageaccess.util.UiUtils.focusXMageWindow(this);
     }
@@ -575,7 +593,6 @@ public class AccessibleLobbyWindow extends JFrame {
     @Override
     public void dispose() {
         stopPolling();
-        instance = null;
         super.dispose();
     }
 
@@ -584,7 +601,4 @@ public class AccessibleLobbyWindow extends JFrame {
         if (speech != null) speech.speak(text);
     }
 
-    public static boolean isAnyWindowVisible() {
-        return instance != null && instance.isVisible();
-    }
 }

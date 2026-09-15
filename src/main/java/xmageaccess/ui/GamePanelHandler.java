@@ -12,7 +12,6 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.KeyEventDispatcher;
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -23,6 +22,15 @@ import java.util.UUID;
 /**
  * Accessibility handler for the XMage Game Panel (active gameplay).
  * Polls the game state and announces changes via speech.
+ *
+ * What is left here are the keys that have no equally quick route through
+ * the window: the zone reads, which answer from wherever you are without
+ * losing your place in a list, XMage's own skip keys, and the action menu.
+ * Everything that was navigation or a click — the hand cursor, playing a
+ * card, walking the battlefield, picking a target, the OK and Cancel
+ * buttons, undo, jumping to chat — is gone, because
+ * {@link AccessibleGameWindow} already offers each of them as a row you
+ * reach with Tab and the arrow keys and act on with Enter.
  *
  * Keyboard shortcuts:
  *   Ctrl+F1         - Read current prompt/question
@@ -36,22 +44,8 @@ import java.util.UUID;
  *   Ctrl+F9         - Read mana pool
  *   Ctrl+F10        - Read command zone
  *   Ctrl+F11        - Read revealed/looked-at cards
- *   Ctrl+Left/Right - Navigate hand cards
- *   Ctrl+Enter      - Play/cast card at hand cursor
- *   Ctrl+D          - Read detailed card info at hand cursor
- *   Ctrl+Shift+Left/Right  - Navigate battlefield permanents
- *   Ctrl+Shift+Up/Down     - Switch between players' battlefields
- *   Ctrl+Shift+Enter       - Click permanent (attack/block/activate)
- *   Ctrl+Shift+D           - Read permanent detail
  *   Ctrl+L          - Read last 3 game log entries
  *   Ctrl+Shift+L    - Read last 10 game log entries
- *   Ctrl+T          - Read available targets/abilities
- *   Ctrl+Shift+1-9  - Select target or ability by number
- *   Ctrl+1          - Click left button (OK/Yes)
- *   Ctrl+2          - Click right button (Cancel/No)
- *   Ctrl+3          - Click special button
- *   Ctrl+Z          - Undo
- *   Ctrl+M          - Focus the game chat input in the accessible window
  *   Ctrl+Shift+M    - Read last 5 game chat messages
  *   Ctrl+K          - Game actions menu (skips, mana, rollback, concede, ...)
  *   Ctrl+Shift+F3   - Cancel all skip actions            (XMage F3)
@@ -64,8 +58,9 @@ import java.util.UUID;
  *   Ctrl+Shift+F11  - Skip to end step before your turn  (XMage F11)
  *   Ctrl+Shift+H    - Toggle hold priority
  *
- * All of these fire only while one of the agent's own windows is active — in
- * practice the accessible game window, which is where the game is played.
+ * All of these fire only while the accessible game window is active, which is
+ * where the game is played — the dispatcher checks for that window by name,
+ * not merely for some agent window, since the lobby's stays open behind it.
  * Inside XMage's own window they do nothing, so its keyboard stays its own.
  *
  * XMage's own F3-F11 skip keys are bound WHEN_IN_FOCUSED_WINDOW on GamePanel,
@@ -73,6 +68,9 @@ import java.util.UUID;
  * mirror them one to one; letters are avoided here because the deck editor
  * window already binds Ctrl+Shift+E, N, F, T and C, and it is open during
  * sideboarding while the game panel is still visible.
+ *
+ * <p>The Ctrl prefix on F1 to F11 is what keeps these apart from XMage's
+ * own keys, which are bound to F2 to F12 unmodified.
  */
 public class GamePanelHandler {
 
@@ -108,16 +106,6 @@ public class GamePanelHandler {
     private volatile boolean inCombatDamageStep = false;
     private String lastCombatSummary = "";
 
-    // Hand navigation cursor
-    private int handCursorIndex = 0;
-    private List<Object> handCards = new ArrayList<>();
-
-    // Battlefield navigation cursor
-    private int bfCursorIndex = 0;
-    private int bfPlayerIndex = 0;
-    private List<Object> bfPermanents = new ArrayList<>();
-    private List<String> bfPlayerNames = new ArrayList<>();
-
     // Accessible window for event-driven refresh
     private AccessibleGameWindow accessibleWindow;
 
@@ -139,9 +127,8 @@ public class GamePanelHandler {
             addKeyboardShortcuts();
             startPolling();
 
-            speak("Game started. "
-                    + "Ctrl+Left, Right navigate hand. Ctrl+Enter to play. "
-                    + "Ctrl+F1 for prompt, Ctrl+1 to confirm, Ctrl+2 to cancel.");
+            speak("Game started. Tab between zones, Enter acts, D reads in full. "
+                    + "Ctrl+F1 reads the prompt, Ctrl+K opens game actions.");
 
         } catch (Exception e) {
             System.err.println("[XMage Access] Error attaching to game panel: " + e.getMessage());
@@ -186,12 +173,6 @@ public class GamePanelHandler {
         lastGameId = null;
         inCombatDamageStep = false;
         lastCombatSummary = "";
-        handCursorIndex = 0;
-        handCards.clear();
-        bfCursorIndex = 0;
-        bfPlayerIndex = 0;
-        bfPermanents.clear();
-        bfPlayerNames.clear();
         rediscoverComponents();
     }
 
@@ -258,23 +239,6 @@ public class GamePanelHandler {
                     // --- Ctrl+Shift shortcuts ---
                     if (e.isControlDown() && e.isShiftDown()) {
                         switch (e.getKeyCode()) {
-                            // Target/ability selection
-                            case KeyEvent.VK_1: selectTargetOrAbility(0); return true;
-                            case KeyEvent.VK_2: selectTargetOrAbility(1); return true;
-                            case KeyEvent.VK_3: selectTargetOrAbility(2); return true;
-                            case KeyEvent.VK_4: selectTargetOrAbility(3); return true;
-                            case KeyEvent.VK_5: selectTargetOrAbility(4); return true;
-                            case KeyEvent.VK_6: selectTargetOrAbility(5); return true;
-                            case KeyEvent.VK_7: selectTargetOrAbility(6); return true;
-                            case KeyEvent.VK_8: selectTargetOrAbility(7); return true;
-                            case KeyEvent.VK_9: selectTargetOrAbility(8); return true;
-                            // Battlefield navigation
-                            case KeyEvent.VK_LEFT: navigateBattlefield(-1); return true;
-                            case KeyEvent.VK_RIGHT: navigateBattlefield(1); return true;
-                            case KeyEvent.VK_UP: switchBattlefieldPlayer(-1); return true;
-                            case KeyEvent.VK_DOWN: switchBattlefieldPlayer(1); return true;
-                            case KeyEvent.VK_ENTER: clickBattlefieldPermanent(); return true;
-                            case KeyEvent.VK_D: readBattlefieldDetail(); return true;
                             // Game log (extended)
                             case KeyEvent.VK_L: readGameLog(10); return true;
                             // Chat (read recent)
@@ -317,22 +281,8 @@ public class GamePanelHandler {
                             case KeyEvent.VK_F9: readManaPool(); return true;
                             case KeyEvent.VK_F10: readCommandZone(); return true;
                             case KeyEvent.VK_F11: readRevealed(); return true;
-                            // Hand navigation
-                            case KeyEvent.VK_LEFT: navigateHand(-1); return true;
-                            case KeyEvent.VK_RIGHT: navigateHand(1); return true;
-                            case KeyEvent.VK_ENTER: playHandCard(); return true;
-                            case KeyEvent.VK_D: readHandCardDetail(); return true;
                             // Game log
                             case KeyEvent.VK_L: readGameLog(3); return true;
-                            // Targets
-                            case KeyEvent.VK_T: readTargets(); return true;
-                            // Buttons
-                            case KeyEvent.VK_1: clickButton("btnLeft", "linkLeft"); return true;
-                            case KeyEvent.VK_2: clickButton("btnRight", "linkRight"); return true;
-                            case KeyEvent.VK_3: clickButton("btnSpecial", "linkSpecial"); return true;
-                            case KeyEvent.VK_Z: clickButton("btnUndo", "linkUndo"); return true;
-                            // Chat (focus input)
-                            case KeyEvent.VK_M: focusChatInput(); return true;
                             // Game actions menu
                             case KeyEvent.VK_K: showGameActionsMenu(); return true;
                         }
@@ -554,10 +504,6 @@ public class GamePanelHandler {
                 } else if (size < lastHandSize) {
                     speak(size + " cards in hand.");
                 }
-                // Reset cursor if out of bounds
-                if (handCursorIndex >= size) {
-                    handCursorIndex = Math.max(0, size - 1);
-                }
                 triggerWindowRefresh();
             }
             lastHandSize = size;
@@ -590,161 +536,16 @@ public class GamePanelHandler {
         List<Object> cardTargets = getVisibleTargets();
         int count = cardTargets.size();
         if (count != lastTargetCount && count > 0) {
-            StringBuilder sb = new StringBuilder("Choose target. ");
-            for (int i = 0; i < cardTargets.size(); i++) {
-                String name = callString(cardTargets.get(i), "getName");
-                if (name != null) {
-                    sb.append("Ctrl+Shift+").append(i + 1).append(": ").append(name).append(". ");
-                }
+            // The targets are rows in the game window's Actions zone, where
+            // Enter picks one; this only says what they are.
+            List<String> names = new ArrayList<>();
+            for (Object target : cardTargets) {
+                String name = callString(target, "getName");
+                if (name != null) names.add(name);
             }
-            speak(sb.toString());
+            speak("Choose target: " + String.join(", ", names) + ".");
         }
         lastTargetCount = count;
-    }
-
-    // ========== HAND NAVIGATION ==========
-
-    private void refreshHandCache() {
-        handCards.clear();
-        Object gameView = getGameView();
-        if (gameView == null) return;
-        Object hand = callMethod(gameView, "getMyHand");
-        if (hand instanceof Map) {
-            handCards.addAll(((Map<?, ?>) hand).values());
-        }
-    }
-
-    private void navigateHand(int direction) {
-        refreshHandCache();
-        if (handCards.isEmpty()) {
-            speak("Hand is empty.");
-            return;
-        }
-        handCursorIndex += direction;
-        if (handCursorIndex < 0) handCursorIndex = handCards.size() - 1;
-        if (handCursorIndex >= handCards.size()) handCursorIndex = 0;
-
-        Object card = handCards.get(handCursorIndex);
-        speak(formatCardBrief(card, handCursorIndex + 1, handCards.size()));
-    }
-
-    private void playHandCard() {
-        refreshHandCache();
-        if (handCards.isEmpty()) {
-            speak("Hand is empty.");
-            return;
-        }
-        if (handCursorIndex >= handCards.size()) {
-            handCursorIndex = 0;
-        }
-        Object card = handCards.get(handCursorIndex);
-        String name = callString(card, "getName");
-        speak("Playing " + (name != null ? name : "card") + ".");
-        sendUUID(card);
-    }
-
-    private void readHandCardDetail() {
-        refreshHandCache();
-        if (handCards.isEmpty()) {
-            speak("Hand is empty.");
-            return;
-        }
-        if (handCursorIndex >= handCards.size()) {
-            handCursorIndex = 0;
-        }
-        speak(formatCardDetailed(handCards.get(handCursorIndex)));
-    }
-
-    // ========== BATTLEFIELD NAVIGATION ==========
-
-    private void refreshBattlefieldCache() {
-        bfPermanents.clear();
-        bfPlayerNames.clear();
-        Object gameView = getGameView();
-        if (gameView == null) return;
-
-        Object playersList = callMethod(gameView, "getPlayers");
-        if (!(playersList instanceof List)) return;
-
-        List<?> players = (List<?>) playersList;
-        for (Object player : players) {
-            String name = callString(player, "getName");
-            bfPlayerNames.add(name != null ? name : "Unknown");
-        }
-
-        if (bfPlayerIndex >= players.size()) bfPlayerIndex = 0;
-        if (players.isEmpty()) return;
-
-        Object player = players.get(bfPlayerIndex);
-        Object battlefield = callMethod(player, "getBattlefield");
-        if (battlefield instanceof Map) {
-            // Sort: creatures first, then non-land non-creatures, then lands
-            List<Object> creatures = new ArrayList<>();
-            List<Object> others = new ArrayList<>();
-            List<Object> lands = new ArrayList<>();
-
-            for (Object perm : ((Map<?, ?>) battlefield).values()) {
-                if (callBool(perm, "isCreature")) creatures.add(perm);
-                else if (callBool(perm, "isLand")) lands.add(perm);
-                else others.add(perm);
-            }
-            bfPermanents.addAll(creatures);
-            bfPermanents.addAll(others);
-            bfPermanents.addAll(lands);
-        }
-    }
-
-    private void navigateBattlefield(int direction) {
-        refreshBattlefieldCache();
-        if (bfPermanents.isEmpty()) {
-            String who = bfPlayerIndex < bfPlayerNames.size() ? bfPlayerNames.get(bfPlayerIndex) : "Unknown";
-            speak(who + "'s battlefield is empty.");
-            return;
-        }
-        bfCursorIndex += direction;
-        if (bfCursorIndex < 0) bfCursorIndex = bfPermanents.size() - 1;
-        if (bfCursorIndex >= bfPermanents.size()) bfCursorIndex = 0;
-
-        Object perm = bfPermanents.get(bfCursorIndex);
-        speak(formatPermanentBrief(perm, bfCursorIndex + 1, bfPermanents.size()));
-    }
-
-    private void switchBattlefieldPlayer(int direction) {
-        refreshBattlefieldCache();
-        if (bfPlayerNames.isEmpty()) {
-            speak("No players.");
-            return;
-        }
-        bfPlayerIndex += direction;
-        if (bfPlayerIndex < 0) bfPlayerIndex = bfPlayerNames.size() - 1;
-        if (bfPlayerIndex >= bfPlayerNames.size()) bfPlayerIndex = 0;
-        bfCursorIndex = 0;
-        refreshBattlefieldCache();
-        String name = bfPlayerNames.get(bfPlayerIndex);
-        speak(name + "'s battlefield. " + bfPermanents.size() + " permanents.");
-    }
-
-    private void clickBattlefieldPermanent() {
-        refreshBattlefieldCache();
-        if (bfPermanents.isEmpty()) {
-            speak("No permanents to click.");
-            return;
-        }
-        if (bfCursorIndex >= bfPermanents.size()) bfCursorIndex = 0;
-        Object perm = bfPermanents.get(bfCursorIndex);
-        String name = callString(perm, "getName");
-        speak("Clicked " + (name != null ? name : "permanent") + ".");
-        sendUUID(perm);
-    }
-
-    private void readBattlefieldDetail() {
-        refreshBattlefieldCache();
-        if (bfPermanents.isEmpty()) {
-            speak("No permanents.");
-            return;
-        }
-        if (bfCursorIndex >= bfPermanents.size()) bfCursorIndex = 0;
-        speak(formatPermanentDetailed(bfPermanents.get(bfCursorIndex)));
     }
 
     // ========== GAME LOG ==========
@@ -811,19 +612,6 @@ public class GamePanelHandler {
     private void readChat() {
         if (chatHelper != null) {
             chatHelper.readRecentChat(5);
-        } else {
-            speak("Chat not available.");
-        }
-    }
-
-    private void focusChatInput() {
-        // Prefer the accessible game window's own chat bar: moving focus
-        // into XMage's input field fails when XMage's window isn't the
-        // focused window, which is the normal case for our users.
-        if (accessibleWindow != null && accessibleWindow.isDisplayable()) {
-            accessibleWindow.focusChatInput();
-        } else if (chatHelper != null) {
-            chatHelper.focusInput();
         } else {
             speak("Chat not available.");
         }
@@ -1180,6 +968,14 @@ public class GamePanelHandler {
 
     // ========== EXISTING ZONE READERS ==========
 
+    /** Short, quotable form for the log; null and empty stay distinguishable. */
+    private static String quote(String s) {
+        if (s == null) return "null";
+        String one = s.replaceAll("\\s+", " ").trim();
+        if (one.length() > 120) one = one.substring(0, 120) + "...";
+        return "\"" + one + "\"";
+    }
+
     private void readCurrentPrompt() {
         StringBuilder sb = new StringBuilder();
 
@@ -1206,6 +1002,10 @@ public class GamePanelHandler {
         if (!buttons.isEmpty()) {
             sb.append(". ").append(buttons);
         }
+
+        xmageaccess.util.Log.event("Game", "Ctrl+F1 prompt: helperPanel="
+                + (helperPanel != null) + ", feedback=" + quote(text)
+                + ", buttons=" + quote(buttons) + ", spoken=" + quote(sb.toString()));
 
         if (sb.length() == 0) {
             speak("No current prompt.");
@@ -1422,27 +1222,6 @@ public class GamePanelHandler {
         return targets;
     }
 
-    private List<Object[]> getSelectablePlayers() {
-        List<Object[]> players = new ArrayList<>();
-        Object gameView = getGameView();
-        if (gameView == null) return players;
-        try {
-            Object playersList = callMethod(gameView, "getPlayers");
-            if (playersList instanceof List) {
-                for (Object player : (List<?>) playersList) {
-                    String name = callString(player, "getName");
-                    Object playerId = callMethod(player, "getPlayerId");
-                    if (name != null && playerId != null) {
-                        players.add(new Object[]{name, playerId});
-                    }
-                }
-            }
-        } catch (Exception e) {
-            // Ignore
-        }
-        return players;
-    }
-
     /**
      * Gets ability choices from the ability picker if visible.
      * Returns list of [UUID id, String text] pairs.
@@ -1472,349 +1251,12 @@ public class GamePanelHandler {
     private void announceAbilityChoices() {
         List<Object[]> choices = getAbilityChoices();
         if (choices.isEmpty()) return;
-        StringBuilder sb = new StringBuilder("Choose ability. ");
-        for (int i = 0; i < choices.size(); i++) {
-            sb.append("Ctrl+Shift+").append(i + 1).append(": ").append(choices.get(i)[1]).append(". ");
+        // Rows in the Actions zone, like the targets.
+        List<String> texts = new ArrayList<>();
+        for (Object[] choice : choices) {
+            texts.add(String.valueOf(choice[1]));
         }
-        speak(sb.toString());
-    }
-
-    private void readTargets() {
-        // Priority 1: ability picker
-        List<Object[]> abilities = getAbilityChoices();
-        if (!abilities.isEmpty()) {
-            StringBuilder sb = new StringBuilder(abilities.size() + " abilities. ");
-            for (int i = 0; i < abilities.size(); i++) {
-                sb.append("Ctrl+Shift+").append(i + 1).append(": ").append(abilities.get(i)[1]).append(". ");
-            }
-            speak(sb.toString());
-            return;
-        }
-
-        // Priority 2: ShowCardsDialog targets
-        List<Object> cardTargets = getVisibleTargets();
-        if (!cardTargets.isEmpty()) {
-            StringBuilder sb = new StringBuilder(cardTargets.size() + " targets. ");
-            for (int i = 0; i < cardTargets.size(); i++) {
-                String name = callString(cardTargets.get(i), "getName");
-                if (name != null) sb.append("Ctrl+Shift+").append(i + 1).append(": ").append(name).append(". ");
-            }
-            speak(sb.toString());
-            return;
-        }
-
-        // Priority 3: player targets
-        Boolean needFeedback = findFieldTyped(helperPanel, "gameNeedFeedback", Boolean.class);
-        if (needFeedback != null && needFeedback) {
-            List<Object[]> players = getSelectablePlayers();
-            if (!players.isEmpty()) {
-                StringBuilder sb = new StringBuilder(players.size() + " players. ");
-                for (int i = 0; i < players.size(); i++) {
-                    sb.append("Ctrl+Shift+").append(i + 1).append(": ").append(players.get(i)[0]).append(". ");
-                }
-                speak(sb.toString());
-                return;
-            }
-        }
-
-        speak("No targets to choose from.");
-    }
-
-    /**
-     * Unified selection: ability picker > card targets > player targets.
-     */
-    private void selectTargetOrAbility(int index) {
-        // Priority 1: ability picker
-        List<Object[]> abilities = getAbilityChoices();
-        if (!abilities.isEmpty()) {
-            if (index >= abilities.size()) {
-                speak("Only " + abilities.size() + " abilities.");
-                return;
-            }
-            Object id = abilities.get(index)[0];
-            String text = (String) abilities.get(index)[1];
-            speak("Selected " + text);
-            if (id != null) {
-                sendUUIDDirect(id);
-            } else {
-                // Cancel option (null id)
-                try {
-                    Object gameId = findFieldDeep(gamePanel, "gameId");
-                    Class<?> sessionClass = Class.forName("mage.client.SessionHandler");
-                    Method sendMethod = sessionClass.getMethod("sendPlayerBoolean", UUID.class, boolean.class);
-                    sendMethod.invoke(null, gameId, false);
-                } catch (Exception e) {
-                    // Ignore
-                }
-            }
-            // Hide the picker
-            if (abilityPicker instanceof Component) {
-                ((Component) abilityPicker).setVisible(false);
-            }
-            return;
-        }
-
-        // Priority 2: card targets
-        List<Object> cardTargets = getVisibleTargets();
-        if (!cardTargets.isEmpty()) {
-            if (index >= cardTargets.size()) {
-                speak("Only " + cardTargets.size() + " targets.");
-                return;
-            }
-            Object cardView = cardTargets.get(index);
-            String name = callString(cardView, "getName");
-            speak("Selected " + (name != null ? name : "target " + (index + 1)) + ".");
-            sendUUID(cardView);
-            return;
-        }
-
-        // Priority 3: player targets
-        List<Object[]> players = getSelectablePlayers();
-        if (!players.isEmpty()) {
-            if (index >= players.size()) {
-                speak("Only " + players.size() + " players.");
-                return;
-            }
-            speak("Selected " + players.get(index)[0] + ".");
-            sendUUIDDirect(players.get(index)[1]);
-            return;
-        }
-
-        speak("No targets available.");
-    }
-
-    // ========== BUTTON INTERACTION ==========
-
-    private void clickButton(String visibleName, String linkName) {
-        if (helperPanel == null) return;
-        try {
-            JButton visibleBtn = getButtonField(visibleName);
-            if (visibleBtn != null && visibleBtn.isVisible()) {
-                speak(visibleBtn.getText());
-                visibleBtn.doClick();
-                return;
-            }
-
-            Boolean needFeedback = findFieldTyped(helperPanel, "gameNeedFeedback", Boolean.class);
-            if (needFeedback != null && needFeedback) {
-                JButton linkBtn = getButtonField(linkName);
-                if (linkBtn != null) {
-                    String text = linkBtn.getText();
-                    if (text == null || text.isEmpty()) {
-                        text = linkName.replace("link", "");
-                    }
-                    speak(text);
-                    linkBtn.doClick();
-                    return;
-                }
-            }
-
-            speak(visibleName.replace("btn", "") + " not available.");
-        } catch (Exception e) {
-            // Ignore
-        }
-    }
-
-    private JButton getButtonField(String name) {
-        try {
-            Field field = helperPanel.getClass().getDeclaredField(name);
-            field.setAccessible(true);
-            Object val = field.get(helperPanel);
-            if (val instanceof JButton) return (JButton) val;
-        } catch (Exception e) {
-            // Ignore
-        }
-        return null;
-    }
-
-    // ========== UUID SENDING ==========
-
-    private void sendUUID(Object cardView) {
-        try {
-            Object gameId = findFieldDeep(gamePanel, "gameId");
-            if (gameId == null) return;
-            Class<?> callbackClass = Class.forName("mage.client.util.DefaultActionCallback");
-            Object callbackInstance = callbackClass.getField("instance").get(null);
-            Method mouseClicked = callbackClass.getMethod("mouseClicked", UUID.class,
-                    Class.forName("mage.view.CardView"));
-            mouseClicked.invoke(callbackInstance, gameId, cardView);
-        } catch (Exception e) {
-            System.err.println("[XMage Access] Error sending UUID: " + e.getMessage());
-        }
-    }
-
-    private void sendUUIDDirect(Object id) {
-        try {
-            Object gameId = findFieldDeep(gamePanel, "gameId");
-            if (gameId == null) return;
-            Class<?> sessionClass = Class.forName("mage.client.SessionHandler");
-            Method sendMethod = sessionClass.getMethod("sendPlayerUUID", UUID.class, UUID.class);
-            sendMethod.invoke(null, gameId, id);
-        } catch (Exception e) {
-            System.err.println("[XMage Access] Error sending UUID: " + e.getMessage());
-        }
-    }
-
-    // ========== FORMATTING HELPERS ==========
-
-    private String formatCardBrief(Object cardView, int position, int total) {
-        String name = callString(cardView, "getName");
-        String manaCost = callString(cardView, "getManaCostStr");
-        String types = callString(cardView, "getTypeText");
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("Card ").append(position).append(" of ").append(total).append(": ");
-        sb.append(name != null ? name : "Unknown");
-        if (manaCost != null && !manaCost.isEmpty()) {
-            sb.append(", ").append(formatManaCost(manaCost));
-        }
-        if (types != null && !types.isEmpty()) {
-            sb.append(". ").append(types);
-        }
-        return sb.toString();
-    }
-
-    private String formatPermanentBrief(Object perm, int position, int total) {
-        String name = callString(perm, "getName");
-        boolean isCreature = callBool(perm, "isCreature");
-        boolean isTapped = callBool(perm, "isTapped");
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("Permanent ").append(position).append(" of ").append(total).append(": ");
-        sb.append(name != null ? name : "Unknown");
-        if (isCreature) {
-            String power = callString(perm, "getPower");
-            String toughness = callString(perm, "getToughness");
-            if (power != null && toughness != null) {
-                sb.append(" ").append(power).append("/").append(toughness);
-            }
-        }
-        if (isTapped) sb.append(", tapped");
-        if (callBool(perm, "hasSummoningSickness")) sb.append(", summoning sickness");
-
-        // Attachments (auras, equipment)
-        String attachments = getAttachmentNames(perm);
-        if (attachments != null) sb.append(", ").append(attachments);
-
-        return sb.toString();
-    }
-
-    private String formatPermanentDetailed(Object perm) {
-        StringBuilder sb = new StringBuilder();
-        String name = callString(perm, "getName");
-        String types = callString(perm, "getTypeText");
-        boolean isCreature = callBool(perm, "isCreature");
-        boolean isTapped = callBool(perm, "isTapped");
-
-        sb.append(name != null ? name : "Unknown").append(". ");
-        if (types != null && !types.isEmpty()) sb.append(types).append(". ");
-
-        if (isCreature) {
-            String power = callString(perm, "getPower");
-            String toughness = callString(perm, "getToughness");
-            if (power != null && toughness != null) sb.append(power).append("/").append(toughness).append(". ");
-        }
-
-        if (isTapped) sb.append("Tapped. ");
-        if (callBool(perm, "hasSummoningSickness")) sb.append("Summoning sickness. ");
-
-        // Attachments
-        String attachments = getAttachmentNames(perm);
-        if (attachments != null) sb.append("Attached: ").append(attachments).append(". ");
-
-        // Attached to
-        if (callBool(perm, "isAttachedTo")) {
-            String parentName = getAttachedToName(perm);
-            if (parentName != null) sb.append("Attached to: ").append(parentName).append(". ");
-        }
-
-        // Counters
-        Object counters = callMethod(perm, "getCounters");
-        if (counters instanceof List && !((List<?>) counters).isEmpty()) {
-            sb.append("Counters: ");
-            for (Object counter : (List<?>) counters) {
-                String cName = callString(counter, "getName");
-                int cCount = callInt(counter, "getCount");
-                if (cName != null) sb.append(cCount).append(" ").append(cName).append(", ");
-            }
-        }
-
-        // Rules text
-        Object rules = callMethod(perm, "getRules");
-        if (rules instanceof List && !((List<?>) rules).isEmpty()) {
-            sb.append("Rules: ");
-            for (Object rule : (List<?>) rules) {
-                sb.append(cleanHtml(rule.toString())).append(". ");
-            }
-        }
-        return sb.toString();
-    }
-
-    /**
-     * Gets names of all permanents attached to this permanent (auras, equipment).
-     */
-    private String getAttachmentNames(Object perm) {
-        try {
-            Object attachmentIds = callMethod(perm, "getAttachments");
-            if (!(attachmentIds instanceof List)) return null;
-            List<?> ids = (List<?>) attachmentIds;
-            if (ids.isEmpty()) return null;
-
-            // Build a UUID->name map from all players' battlefields
-            Map<Object, String> uuidToName = getBattlefieldNameMap();
-            if (uuidToName.isEmpty()) return null;
-
-            StringBuilder sb = new StringBuilder();
-            int count = 0;
-            for (Object id : ids) {
-                String attachName = uuidToName.get(id);
-                if (attachName != null) {
-                    if (count > 0) sb.append(", ");
-                    sb.append(attachName);
-                    count++;
-                }
-            }
-            return count > 0 ? sb.toString() : null;
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    /**
-     * Gets the name of the permanent this one is attached to.
-     */
-    private String getAttachedToName(Object perm) {
-        try {
-            Object attachedToId = callMethod(perm, "getAttachedTo");
-            if (attachedToId == null) return null;
-            Map<Object, String> uuidToName = getBattlefieldNameMap();
-            return uuidToName.get(attachedToId);
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    /**
-     * Builds a map of UUID -> card name for all permanents on all battlefields.
-     */
-    private Map<Object, String> getBattlefieldNameMap() {
-        Map<Object, String> map = new HashMap<>();
-        Object gameView = getGameView();
-        if (gameView == null) return map;
-        Object playersList = callMethod(gameView, "getPlayers");
-        if (!(playersList instanceof List)) return map;
-        for (Object player : (List<?>) playersList) {
-            Object battlefield = callMethod(player, "getBattlefield");
-            if (battlefield instanceof Map) {
-                for (Map.Entry<?, ?> entry : ((Map<?, ?>) battlefield).entrySet()) {
-                    String name = callString(entry.getValue(), "getName");
-                    if (name != null) {
-                        map.put(entry.getKey(), name);
-                    }
-                }
-            }
-        }
-        return map;
+        speak("Choose ability: " + String.join(", ", texts) + ".");
     }
 
     private Object getGameView() {
@@ -1863,22 +1305,19 @@ public class GamePanelHandler {
         return null;
     }
 
+    /**
+     * The labels of XMage's visible prompt buttons, in the order the Actions
+     * zone lists them. They used to carry Ctrl+1, Ctrl+2, Ctrl+3 and Ctrl+Z
+     * in front, keys that no longer exist; the buttons are rows now.
+     */
     private String getVisibleButtons() {
         if (helperPanel == null) return "";
         StringBuilder sb = new StringBuilder();
-        String[] buttons = {"btnLeft", "btnRight", "btnSpecial", "btnUndo"};
-        String[] shortcuts = {"Ctrl+1", "Ctrl+2", "Ctrl+3", "Ctrl+Z"};
-        for (int i = 0; i < buttons.length; i++) {
-            try {
-                Field field = helperPanel.getClass().getDeclaredField(buttons[i]);
-                field.setAccessible(true);
-                JButton btn = (JButton) field.get(helperPanel);
-                if (btn != null && btn.isVisible()) {
-                    if (sb.length() > 0) sb.append(", ");
-                    sb.append(shortcuts[i]).append(" ").append(btn.getText());
-                }
-            } catch (Exception e) {
-                // Ignore
+        for (String name : new String[]{"btnLeft", "btnRight", "btnSpecial", "btnUndo"}) {
+            JButton btn = findFieldTyped(helperPanel, name, JButton.class);
+            if (btn != null && btn.isVisible()) {
+                if (sb.length() > 0) sb.append(", ");
+                sb.append(btn.getText());
             }
         }
         return sb.toString();

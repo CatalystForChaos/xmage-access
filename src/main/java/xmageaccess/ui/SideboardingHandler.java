@@ -279,10 +279,7 @@ public class SideboardingHandler extends JFrame {
                 + "Tab between zones, Enter to move cards, Ctrl+Enter to submit. "
                 + "Ctrl+F1 for all shortcuts.");
 
-        // Focus the main deck zone
-        SwingUtilities.invokeLater(() -> {
-            mainDeckZone.getList().requestFocusInWindow();
-        });
+        xmageaccess.util.UiUtils.focusAgentWindow(this, mainDeckZone.getList());
     }
 
     // ========== REFRESH ==========

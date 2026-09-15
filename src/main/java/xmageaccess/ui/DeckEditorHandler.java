@@ -12,7 +12,7 @@ import xmageaccess.speech.SpeechOutput;
  * sideboard summaries) that only fired while the accessible window was
  * closed. That window opens with the panel, so they were already all but
  * unreachable, and the agent no longer takes keys inside XMage's own window
- * at all — see {@code UiUtils.isAgentWindowActive}. The summaries they read
+ * at all — see {@code UiUtils.isActiveWindow}. The summaries they read
  * live in {@link AccessibleDeckEditorWindow}, which reads them from the same
  * fields.
  */

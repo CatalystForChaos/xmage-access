@@ -19,7 +19,8 @@ javac -cp target/xmage-access-0.1.0.jar -d "$OUT" \
   $(find harness/stubs harness/src -name '*.java')
 
 for h in GameActionsHarness FilterHarness WhatsNewHarness PacksSelectorHarness \
-         DraftWindowHarness TournamentWindowHarness; do
+         DraftWindowHarness TournamentWindowHarness FocusHarness \
+         ZoneListHarness; do
   java -cp "$OUT;target/xmage-access-0.1.0.jar" xmageaccess.ui.$h
 done
 ```
@@ -79,6 +80,31 @@ model carries three columns past the five it shows; this pins that the rows
 are read from the model so those ids come along, that a match is offered for
 watching exactly when XMage's own action cell says "Watch", and that watching
 hands that row's table id to `SessionHandler.watchTournamentTable`.
+
+**`ZoneListHarness`** — the refresh every zone in every window goes
+through. The polling timers rebuild the lists whether or not anything
+changed, and clearing and refilling a JList fires accessibility events at the
+screen reader either way — which is what made it talk over itself while you
+were reading. This pins that a refresh changing nothing leaves the very same
+item objects in the model (identity is the test: if they are still those
+objects, nothing was rebuilt) and the selection where it was, and that a
+changed name, a changed detail, a shorter list, or a row that reads the same
+but points at a different object all still go through, since Enter would
+otherwise act on the previous game.
+
+**`FocusHarness`** — the window-focus helpers, and the only harness that
+needs no stubs: it is about the JDK, not about XMage. Every panel-level
+shortcut is gated on its own window being the active one, and
+`requestFocusInWindow()` is documented to focus nothing unless its window "is
+already the focused Window" — so showing a window and then asking it to focus
+a list, in that order, gets neither. This shows the component request is held
+back until the window reports the focus, that the listener carrying it takes
+itself off again, that a call from off the EDT is moved onto it, that a
+minimised window is restored rather than merely raised, and that the two
+gating predicates answer for the right windows. Its frames are non-focusable
+and placed far off-screen, so the run neither shows anything nor takes the
+keyboard from the terminal; that also forces the branch worth testing, the one
+where the window is not focused.
 
 **`PacksSelectorHarness`** — the pack selector's cursor. It shows the
 checkboxes are reachable at all (they sit in a heavyweight `java.awt.Panel`

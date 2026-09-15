@@ -246,7 +246,7 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
     /**
      * True while a choice/prompt dialog that should receive keyboard
      * shortcuts is visible. GamePanelHandler yields its shortcuts
-     * (Ctrl+Enter, Ctrl+1/2/3, ...) while this returns true, so dialog
+     * (Ctrl+F1 to F11, Ctrl+L, Ctrl+K, ...) while this returns true, so dialog
      * handlers registered later in the dispatcher chain actually get them.
      */
     public boolean isBlockingDialogVisible() {
@@ -261,9 +261,10 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
                     || handler instanceof PickPileDialogHandler
                     || handler instanceof UserRequestDialogHandler
                     || handler instanceof GameEndDialogHandler
-                    // These own Ctrl+Enter, Ctrl+D and Ctrl+R while they are
-                    // open, and can appear with a game still running — the add
-                    // land dialog during sideboarding, an error at any time.
+                    // These own keys of their own while they are open —
+                    // Ctrl+Enter and Ctrl+R, or Ctrl+D for joining a table —
+                    // and can appear with a game still running: the add land
+                    // dialog during sideboarding, an error at any time.
                     || handler instanceof AddLandDialogHandler
                     || handler instanceof JoinTableDialogHandler
                     || handler instanceof ErrorDialogHandler
@@ -276,21 +277,6 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
             }
             if (handler instanceof ShowCardsDialogHandler
                     && ((ShowCardsDialogHandler) handler).isModalDialog()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * True while any handled dialog is visible. The lobby yields its
-     * global shortcuts (Ctrl+D, Ctrl+N, ...) while this returns true.
-     */
-    public boolean isAnyDialogVisible() {
-        for (Map.Entry<Component, Object> entry : attachedHandlers.entrySet()) {
-            if (isDialogHandler(entry.getValue())
-                    && entry.getKey().isVisible()
-                    && entry.getKey().isDisplayable()) {
                 return true;
             }
         }
@@ -544,7 +530,7 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
 
         if (!connectStillVisible && lobbyHandler != null) {
             lobbyAnnounced = true;
-            System.out.println("[XMage Access] Connect dialog closed, announcing lobby.");
+            xmageaccess.util.Log.event("Lobby", "connect dialog closed, announcing lobby");
             lobbyHandler.announceWelcome();
         }
     }
@@ -610,6 +596,7 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
             // Open accessible deck editor window alongside the handler
             AccessibleDeckEditorWindow window = new AccessibleDeckEditorWindow(panel);
             window.setVisible(true);
+            window.takeFocus();
             deckEditorWindows.put(panel, window);
             System.out.println("[XMage Access] Accessible deck editor window opened.");
         }
@@ -651,6 +638,7 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
     private AccessibleGameWindow openGameWindow(Component panel, final GamePanelHandler handler) {
         AccessibleGameWindow window = new AccessibleGameWindow(panel);
         window.setVisible(true);
+        window.takeFocus();
         gameWindows.put(panel, window);
 
         // Connect handler to window for event-driven refreshes

@@ -21,8 +21,14 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Accessible tournament window: standings, match results and the tournament
- * chat, as lists you Tab between, plus a box to type into the chat.
+ * Accessible tournament window: the tournament's own status, the standings,
+ * the match results and the chat, as lists you Tab between, plus a box to
+ * type into the chat.
+ *
+ * <p>It is shaped like the lobby window rather than given shortcuts of its
+ * own: everything is a row in a list, reached with Tab and the arrow keys
+ * and acted on with Enter. Name, type and state are rows in the first zone,
+ * and the chat box sits in the Tab order, so neither needs a key.
  *
  * <p>Watching a match repeats what XMage's own action button does. Its
  * matches model carries three columns past the five it displays — table id,
@@ -36,13 +42,11 @@ import java.util.UUID;
  * incoming messages by itself. The input box is this window's own: handing
  * focus to XMage's chat field from another window does not work.
  *
- * Shortcuts:
- *   Tab/Shift+Tab - switch between Standings, Matches and Chat
+ * Keys:
+ *   Tab/Shift+Tab - move between Tournament, Standings, Matches, Chat and
+ *                   the chat box
  *   Up/Down       - move through a list
  *   Enter         - watch the selected match (in Matches)
- *   Ctrl+R        - read name, type and state
- *   Ctrl+M        - jump to the chat box
- *   Ctrl+F1       - read all shortcuts
  *   Escape        - back to XMage's own window
  */
 public class AccessibleTournamentWindow extends JFrame {
@@ -58,6 +62,7 @@ public class AccessibleTournamentWindow extends JFrame {
 
     private final Component panel;
 
+    private final ZoneListPanel statusZone;
     private final ZoneListPanel standingsZone;
     private final ZoneListPanel matchesZone;
     private final ZoneListPanel chatZone;
@@ -77,9 +82,11 @@ public class AccessibleTournamentWindow extends JFrame {
         super("XMage Accessible Tournament");
         this.panel = panel;
 
+        statusZone = new ZoneListPanel("Tournament");
         standingsZone = new ZoneListPanel("Standings");
         matchesZone = new ZoneListPanel("Matches");
         chatZone = new ZoneListPanel("Chat");
+        allZones.add(statusZone);
         allZones.add(standingsZone);
         allZones.add(matchesZone);
         allZones.add(chatZone);
@@ -123,6 +130,7 @@ public class AccessibleTournamentWindow extends JFrame {
 
         setFocusCycleRoot(true);
         final List<Component> focusOrder = new ArrayList<>();
+        focusOrder.add(statusZone.getList());
         focusOrder.add(standingsZone.getList());
         focusOrder.add(matchesZone.getList());
         focusOrder.add(chatZone.getList());
@@ -191,31 +199,6 @@ public class AccessibleTournamentWindow extends JFrame {
         InputMap windowInput = getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
         ActionMap windowAction = getRootPane().getActionMap();
 
-        windowInput.put(KeyStroke.getKeyStroke(KeyEvent.VK_R, KeyEvent.CTRL_DOWN_MASK), "readStatus");
-        windowAction.put("readStatus", new AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                speak(tournamentStatus() + standingsZone.getList().getModel().getSize() + " players.");
-            }
-        });
-
-        windowInput.put(KeyStroke.getKeyStroke(KeyEvent.VK_M, KeyEvent.CTRL_DOWN_MASK), "focusChat");
-        windowAction.put("focusChat", new AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                SwingUtilities.invokeLater(() -> chatInput.requestFocusInWindow());
-                speak("Tournament chat input. Type your message and press Enter to send.");
-            }
-        });
-
-        windowInput.put(KeyStroke.getKeyStroke(KeyEvent.VK_F1, KeyEvent.CTRL_DOWN_MASK), "readHelp");
-        windowAction.put("readHelp", new AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                readHelp();
-            }
-        });
-
         windowInput.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "returnFocus");
         windowAction.put("returnFocus", new AbstractAction() {
             @Override
@@ -276,9 +259,10 @@ public class AccessibleTournamentWindow extends JFrame {
         refreshZones();
         speak("Tournament. " + tournamentStatus()
                 + standingsZone.getList().getModel().getSize() + " players. "
-                + "Tab between standings, matches and chat, Enter to watch a "
-                + "match. Ctrl+F1 for all shortcuts.");
-        SwingUtilities.invokeLater(() -> standingsZone.getList().requestFocusInWindow());
+                + "Tab between the tournament status, standings, matches, chat "
+                + "and the chat box. Enter watches a match, Escape returns to "
+                + "XMage.");
+        xmageaccess.util.UiUtils.focusAgentWindow(this, standingsZone.getList());
     }
 
     // ========== REFRESH ==========
@@ -287,6 +271,8 @@ public class AccessibleTournamentWindow extends JFrame {
         standingsZone.updateItems(readStandings());
         matchesZone.updateItems(readMatches());
         chatZone.updateItems(readChat());
+        // Last: its player and match counts are read off the zones above.
+        statusZone.updateItems(readStatusItems());
     }
 
     List<ZoneItem> readStandings() {
@@ -405,6 +391,29 @@ public class AccessibleTournamentWindow extends JFrame {
 
     // ========== STATUS ==========
 
+    /**
+     * Name, type and state as list rows. XMage keeps them in text fields on
+     * the tournament panel that a screen reader never reaches; here they are
+     * a zone you Tab to, the way the lobby carries its own standing
+     * information — no key to know about.
+     */
+    private List<ZoneItem> readStatusItems() {
+        List<ZoneItem> items = new ArrayList<>();
+        String name = readTextField("txtName");
+        if (name != null && !name.isEmpty()) items.add(statusItem("Name: " + name));
+        String type = readTextField("txtType");
+        if (type != null && !type.isEmpty()) items.add(statusItem("Type: " + type));
+        String state = readTextField("txtTournamentState");
+        if (state != null && !state.isEmpty()) items.add(statusItem("State: " + state));
+        items.add(statusItem(standingsZone.getList().getModel().getSize() + " players"));
+        items.add(statusItem(matchesZone.getList().getModel().getSize() + " matches"));
+        return items;
+    }
+
+    private ZoneItem statusItem(String text) {
+        return new ZoneItem(text, text, null, ZoneItem.ActionType.NONE);
+    }
+
     private String tournamentStatus() {
         StringBuilder sb = new StringBuilder();
         String name = readTextField("txtName");
@@ -419,14 +428,6 @@ public class AccessibleTournamentWindow extends JFrame {
     private String readTextField(String fieldName) {
         JTextField field = findFieldTyped(panel, fieldName, JTextField.class);
         return field != null ? field.getText() : null;
-    }
-
-    private void readHelp() {
-        speak("Tournament shortcuts. Tab and Shift+Tab move between standings, "
-                + "matches, chat and the chat box. Up and Down move through a "
-                + "list. Enter watches the selected match, when it can be "
-                + "watched. Ctrl+R reads name, type and state. Ctrl+M jumps to "
-                + "the chat box. Escape returns to XMage.");
     }
 
     // ========== HELPERS ==========

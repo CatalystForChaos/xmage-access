@@ -1,0 +1,515 @@
+XMAGE ACCESS - TESTPLAN
+=======================
+
+Stand: 28. August 2026
+Build: heute gebaut und installiert als
+       xmage\mage-client\lib\xmage-access-0.1.0.jar
+       MD5 1229b3e15226cbbc1bbd312dc6e5323c
+Umfang: alles, was seit Version 0.1.13 dazugekommen ist und noch nie in
+       einem laufenden Client lief.
+
+
+SO WIRD DER PLAN AUSGEFÜLLT
+----------------------------
+
+Jeder Test hat drei Zeilen: "Tun", "Erwartet" und "Ergebnis". Trage hinter
+"Ergebnis:" ein, was passiert ist. Vorschlag für die Markierung:
+
+  OK      - läuft wie beschrieben
+  TEILS   - läuft, aber nicht ganz; dahinter was fehlt
+  FEHLER  - läuft nicht; dahinter in eigenen Worten was passiert ist
+  OFFEN   - noch nicht getestet (so steht es jetzt überall)
+
+Die Kürzel A1, B3 und so weiter sind die Namen der Tests. Darauf können
+wir uns später beziehen, ohne den Text noch einmal vorzulesen.
+
+Mit NEU markierte Tests prüfen die Änderung von heute: dass ein
+barrierefreies Fenster beim Öffnen wirklich die Tastatur bekommt. Das ist
+der wichtigste Block, denn ohne Fokus in diesen Fenstern antwortet gar kein
+Kürzel mehr - seit der Agent in XMages eigenem Fenster keine Tasten mehr
+nimmt.
+
+
+START, RÜCKWEG, PROTOKOLL
+--------------------------
+
+Gestartet wird mit run-accessible-launcher.cmd im Ordner
+C:\Users\marcel\Downloads\mage. Der Agent hängt schon in
+installed.properties: xmage.client.javaopts enthält
+-javaagent:./lib/xmage-access-0.1.0.jar.
+
+Rückweg auf die letzte veröffentlichte Version, falls etwas
+grundsätzlich kaputt ist: im Ordner xmage\mage-client\lib die Datei
+xmage-access-0.1.0.jar löschen und xmage-access-0.1.0.jar.v0.1.13.bak zu
+xmage-access-0.1.0.jar umbenennen.
+
+Der Agent schreibt seine Diagnose auf die Standardausgabe. Über den
+Launcher gestartet wird die nirgends mitgeschrieben - in mageclient.log
+steht sie nicht, das habe ich nachgesehen. Wer sie sehen will, startet den
+Client aus einem Terminal; mit -Dxmageaccess.log=debug in derselben
+javaopts-Zeile wird sie ausführlicher.
+
+Stürzt die JVM ab, legt sie eine Datei hs_err_pid<Nummer>.log in
+xmage\mage-client ab. Zwei liegen dort schon, beide vom 27. August, beide
+ohne den Agenten im Stack. Kommt beim Testen eine neue dazu, ist das ein
+wichtiger Fund - Datei bitte liegen lassen.
+
+Ein Hinweis zum Zuhören: eine Liste im barrierefreien Fenster sagt beim
+Fokus immer ihren Namen und die Anzahl, etwa "Actions. 5 items." Genau das
+ist der Beweis, dass der Fokus angekommen ist. Bei den NEU-Tests heißt
+"Erwartet" deshalb fast immer: du hörst diesen Satz, ohne eine Taste
+gedrückt zu haben.
+
+
+A. START UND ANMELDUNG
+----------------------
+
+A1  Agent lädt
+    Tun:      Client über run-accessible-launcher.cmd starten.
+    Erwartet: Der Agent meldet sich, bevor XMages Fenster steht.
+    Ergebnis: ok
+
+A2  Neuigkeiten-Seite (What's new)
+    Tun:      Wenn der Dialog von selbst aufgeht: Ctrl+Down und Ctrl+Up
+              zeilenweise lesen, Ctrl+R aktuelle Zeile mit Position,
+              Ctrl+Shift+R ganze Seite, Ctrl+C kopieren, Ctrl+B im
+              Browser öffnen, Ctrl+Enter schließen.
+    Erwartet: Der Dialog sagt beim Öffnen, was er ist. Die Zeilen sind
+              Text, kein HTML. Ctrl+B öffnet den Standardbrowser.
+    Ergebnis: OK, könnte aber ein eigenes Fenster mit navigierbaren zeilen sein. Tastenkürzel nerven.
+    Hinweis:  Geht er nicht von selbst auf, lässt er sich in der Lobby
+              über XMages eigenen Menüpunkt öffnen.
+
+A3  Verbindungsdialog
+    Tun:      Normal verbinden.
+    Erwartet: Die Felder des Dialogs werden angesagt.
+    Ergebnis: OK
+
+A4  NEU - das Lobby-Fenster bekommt die Tastatur
+    Tun:      Nach dem Verbinden nichts drücken, nur zuhören.
+    Erwartet: Erst die Lobby-Ansage mit den Kürzeln, dann kommt der
+              Fokus im barrierefreien Lobby-Fenster an: "Actions. N
+              items." Du bist also sofort in der Aktionsliste, ohne
+              Alt+Tab.
+    Ergebnis: Nein, er bleibt im Xmage client fenster, ist aber über alt tab zu erreichen.
+    Wenn es fehlschlägt: notiere, wo der Fokus stattdessen steht (XMages
+    Fenster? Verbindungsdialog?) und ob Alt+Tab das Lobby-Fenster findet.
+
+
+B. LOBBY
+--------
+
+B1  Zonen im Lobby-Fenster
+    Tun:      Tab und Shift+Tab durch die vier Zonen und die Chat-Zeile,
+              in einer Zone Pfeil hoch und runter, in "Open Games" D für
+              das ganze Detail, Enter zum Beitreten oder Zuschauen.
+    Erwartet: Zonen sind Actions, Open Games, Players Online, Chat. Jede
+              meldet Namen und Anzahl.
+    Ergebnis: OK
+
+B2  Lobby-Kürzel
+    Tun:      Der Reihe nach: Ctrl+G Spiele auflisten, Ctrl+Up und
+              Ctrl+Down blättern, Ctrl+R aktuelles Spiel vorlesen,
+              Ctrl+J beitreten, Ctrl+W zuschauen, Ctrl+P Spielerliste,
+              Ctrl+I Lobby-Info, Ctrl+N neuer Tisch, Ctrl+E Deckeditor,
+              Ctrl+D Bilder laden, Ctrl+M in die Chat-Zeile,
+              Ctrl+Shift+M letzte Chat-Nachrichten.
+    Erwartet: Jedes tut, was es sagt. Notiere nur die, die nicht gehen.
+    Ergebnis: alles läuft, wie es soll. Folgende Tastenkürzel werden nicht benötigt. Ctrl+G Spiele auflisten, Ctrl+Up und
+              Ctrl+Down blättern, Ctrl+R aktuelles Spiel vorlesen, 
+              Ctrl+J beitreten Ctrl+P Spielerliste, Ctrl+N neuer Tisch, Ctrl+E Deckeditor,
+              Ctrl+D Bilder laden, Ctrl+M in die Chat-Zeile,
+              Ctrl+Shift+M letzte Chat-Nachrichten.
+              
+
+B3  NEU - in XMages eigenem Fenster nimmt der Agent keine Tasten
+    Tun:      Im Lobby-Fenster Escape drücken (das gibt den Fokus an
+              XMage zurück). Dort dann Ctrl+G und Ctrl+N drücken.
+    Erwartet: Nichts vom Agenten. Die Tasten gehören dort XMage. Mit
+              Alt+Tab zurück ins Lobby-Fenster antworten sie wieder.
+    Ergebnis: OK.
+
+B4  Lobby-Chat
+    Tun:      Ctrl+M, etwas tippen, Enter.
+    Erwartet: Die Nachricht geht raus und erscheint in der Chat-Zone.
+    Ergebnis: siehe b2
+
+
+C. DECKEDITOR
+-------------
+
+C1  NEU - der Deckeditor bekommt die Tastatur
+    Tun:      In der Lobby Ctrl+E. Dann nichts drücken.
+    Erwartet: Der Deckeditor meldet sich, und der Fokus steht im Suchfeld
+              des barrierefreien Fensters - NVDA sagt das Feld an, du
+              kannst sofort tippen.
+    Ergebnis: OK
+
+C2  Filter umschalten - der behobene Defekt
+    Tun:      Ctrl+Shift+1 (Kreaturen) einmal ein, einmal aus. Danach
+              Ctrl+Shift+7 (Länder) und Ctrl+3 (Schwarz) genauso.
+              Zwischendurch Ctrl+F, das die aktiven Filter vorliest.
+    Erwartet: Genau der eine Filter kippt. Früher hat ein Umschalten
+              alle anderen gesetzt und den Client mitunter abgeschossen.
+              Der Client bleibt stehen.
+    Ergebnis: OK
+    Das ist der Test, bei dem eine neue hs_err_pid-Datei am meisten
+    bedeuten würde.
+
+C3  Filter zurücksetzen
+    Tun:      Mehrere Filter setzen, dann Ctrl+Shift+F.
+    Erwartet: Alle Filter zurück auf "keine Einschränkung", ohne
+              Zwischenzustände, ohne Absturz.
+    Ergebnis: OK
+
+C4  Sets und Suche
+    Tun:      Ctrl+T und Ctrl+Shift+T blättern durch die Set-Auswahl,
+              Ctrl+E öffnet die Set-Suche nach Namen, Ctrl+Shift+C
+              wechselt zwischen Suche nach Name, Typ und Regeltext.
+              Dann im Suchfeld etwas eingeben und Enter.
+    Erwartet: Die Trefferzahl wird angesagt und der Fokus landet in der
+              Ergebnisliste.
+    Ergebnis: OK
+
+C5  Länder hinzufügen
+    Tun:      Ctrl+A. Im Dialog: Ctrl+Left und Ctrl+Right zwischen Wald,
+              Insel, Gebirge, Ebene, Sumpf und Deckgröße, Ctrl+Up und
+              Ctrl+Down ändern die Zahl, Ctrl+S schlägt Länder vor,
+              Ctrl+E wählt das Set, Ctrl+R liest alles vor,
+              Ctrl+Enter fügt hinzu.
+    Erwartet: Jeder Schritt wird gesprochen; früher war der Dialog
+              stumm.
+    Ergebnis: ctrl+a scheint nichts zu tun.
+
+C6  Deck-Operationen
+    Tun:      Ctrl+N neues Deck, Ctrl+O laden, Ctrl+S speichern,
+              Ctrl+I importieren, Ctrl+Shift+E exportieren, Ctrl+G Deck
+              erzeugen, Ctrl+Shift+N Deckname, Ctrl+L Legalität,
+              Ctrl+R Deckübersicht, Ctrl+F1 alle Kürzel.
+    Erwartet: Notiere nur, was nicht geht.
+    Ergebnis: OK
+
+
+D. SPIEL
+--------
+
+D1  Tisch erstellen
+    Tun:      In der Lobby Ctrl+N, den Dialog durchgehen, Tisch anlegen.
+    Erwartet: Die Felder des Dialogs werden angesagt.
+    Ergebnis: OK
+
+D2  Tisch beitreten
+    Tun:      Einem fremden Tisch beitreten. Im Dialog: Ctrl+D für die
+              Deckauswahl (Liste zum Tippen statt Dateidialog),
+              Ctrl+P ins Passwortfeld, Ctrl+R liest die Auswahl vor,
+              Ctrl+Enter tritt bei.
+    Erwartet: Die Deckauswahl ist eine Liste, in der Tippen filtert.
+    Ergebnis: ok, aber außer ctrl+d wird nichts davon benötigt.
+
+D3  NEU - das Spielfenster bekommt die Tastatur
+    Tun:      Spiel starten. Dann nichts drücken.
+    Erwartet: "Game started." samt Kürzeln, und der Fokus kommt im
+              barrierefreien Spielfenster an: "Actions. N items."
+    Ergebnis: OK
+
+D4  Vorlesen im Spiel
+    Tun:      Ctrl+F1 Frage, Ctrl+F2 Lebenspunkte, Ctrl+F3 Handkarten,
+              Ctrl+F4 Schlachtfeld, Ctrl+F5 Stapel, Ctrl+F6 Friedhöfe,
+              Ctrl+F7 Exil, Ctrl+F8 Kampf, Ctrl+F9 Manapool,
+              Ctrl+F10 Kommandozone, Ctrl+F11 aufgedeckte Karten,
+              Ctrl+L letzte 3 Logzeilen, Ctrl+Shift+L letzte 10,
+              Ctrl+Shift+M letzte 5 Chatzeilen.
+    Erwartet: Notiere nur, was schweigt oder Falsches sagt.
+    Ergebnis: ctrl+f1
+
+D5  Spielen
+    Tun:      Ctrl+Left und Ctrl+Right durch die Hand, Ctrl+D für den
+              vollen Kartentext, Ctrl+Enter ausspielen.
+              Ctrl+Shift+Left und Right über die Permanenten,
+              Ctrl+Shift+Up und Down zwischen den Schlachtfeldern,
+              Ctrl+Shift+Enter klickt das Permanent an,
+              Ctrl+Shift+D liest es vor.
+              Ctrl+T Ziele und Fähigkeiten, Ctrl+Shift+1 bis 9 wählt
+              eines davon. Ctrl+1 bestätigen, Ctrl+2 abbrechen,
+              Ctrl+3 Spezialknopf, Ctrl+Z zurück,
+              Ctrl+M in die Chat-Zeile.
+    Erwartet: Notiere nur, was nicht geht.
+    Ergebnis: Alle Tastenkombinationen aus diesem Schritt warden nicht benötigt. Bitte streichen.
+
+D6  Überspringen und Priorität
+    Tun:      Ctrl+Shift+F3 alle Skips abbrechen, Ctrl+Shift+F4 nächster
+              Zug, Ctrl+Shift+F5 bis Ende des Zugschritts,
+              Ctrl+Shift+F6 alles bis zum nächsten Zug,
+              Ctrl+Shift+F7 nächste Hauptphase,
+              Ctrl+Shift+F9 bis zu deinem Zug,
+              Ctrl+Shift+F10 bis der Stapel aufgelöst ist,
+              Ctrl+Shift+F11 Endschritt vor deinem Zug,
+              Ctrl+Shift+H Priorität halten.
+    Erwartet: Dasselbe wie XMages eigene F3 bis F11, aber aus dem
+              barrierefreien Fenster heraus, wo XMages Tasten nicht
+          	    hinreichen.
+    Ergebnis: OK
+
+D7  Aktionsmenü
+    Tun:      Ctrl+K. Durch die Liste blättern, tippen filtert, Enter
+              wählt, Escape bricht ab. Interessant: die Mana-Schalter,
+              "Rollback to start of current turn", "View a player's
+              deck", "Concede this game".
+    Erwartet: 27 Einträge, die Schalter sagen ihren aktuellen Zustand
+              mit. Rollback und Aufgeben wirken sofort.
+    Ergebnis: OK
+
+D8  Sideboarding zwischen zwei Spielen
+    Tun:      Ein Spiel gewinnen oder verlieren, bis das Sideboarding
+              kommt. Tab zwischen Main Deck und Sideboard, Pfeiltasten,
+              Enter schiebt eine Karte, D liest sie vor, Ctrl+R die
+              Übersicht, Ctrl+Enter schickt ab.
+    Erwartet: NEU - der Fokus steht ohne Zutun in "Main Deck", die Uhr
+              läuft ja.
+    Ergebnis: ok.
+
+D9  Zweites Spiel im Match
+    Tun:      Nach dem Sideboarding weiterspielen.
+    Erwartet: Der Spielzustand ist frisch: keine Karten und keine
+              Lebenspunkte aus dem ersten Spiel, keine doppelten Ansagen.
+    Ergebnis: OK.
+
+D10 NEU - nach dem Spiel holt sich die Lobby die Tastatur
+    Tun:      Match zu Ende spielen oder aufgeben, dann bis zu fünf
+              Sekunden warten und nichts drücken.
+    Erwartet: Das Lobby-Fenster kommt zurück und meldet "Actions. N
+              items." Ctrl+G antwortet sofort wieder.
+    Ergebnis: nein, er springt ins clientfenster. Loby durch alt tab erreichbar.
+
+
+E. DRAFT UND TURNIER
+--------------------
+
+E1  Set-Pool für den Zufalls-Draft
+    Tun:      Ctrl+N, Turnierart Random Draft (oder Rich Man, oder Chaos
+              Reshuffled), dann die Set-Auswahl öffnen. Dort:
+              Ctrl+Down und Ctrl+Up durch die Sets, Ctrl+F sucht eines
+              nach Name oder Code, Ctrl+Space nimmt es rein oder raus,
+              Ctrl+A alle, Ctrl+N keines, Ctrl+R Anzahl und aktuelles
+              Set, Ctrl+Shift+R listet die gewählten, Ctrl+Enter
+              übernimmt.
+    Erwartet: Der Name des Sets kommt zuerst, dann der Code buchstabiert,
+              dann ob es drin ist. Ctrl+Enter bei leerem Pool wird
+              abgelehnt, statt XMages stummen Hinweis zu zeigen.
+    Ergebnis: OFFEN
+
+E2  NEU - das Draftfenster bekommt die Tastatur
+    Tun:      Draft starten und den ersten Booster abwarten, ohne etwas
+              zu drücken.
+    Erwartet: "Draft." samt Anzahl der Karten, und der Fokus steht in
+              "Booster" - nicht in der ersten Zone "Draft", denn im
+              Booster wird gearbeitet. Die Zeit läuft, das muss ohne
+              Alt+Tab gehen.
+    Ergebnis: OFFEN
+
+E3  Karten picken
+    Tun:      Pfeiltasten durch den Booster, D für den vollen
+              Kartentext, Enter pickt. Tab wechselt zu "Your Picks".
+    Erwartet: Die Karte verschwindet aus dem Booster und taucht in den
+              Picks auf; XMages eigene Anzeige zieht mit. Ein zu
+              schneller zweiter Pick wird abgelehnt, nicht doppelt
+              gesendet.
+    Ergebnis: OFFEN
+
+E3b Draft-Status als eigene Zone
+    Tun:      Shift+Tab aus dem Booster in die Zone "Draft", dann mit
+              den Pfeiltasten durch ihre Zeilen.
+    Erwartet: Pack und Name, die Nummer des Picks, die verbleibende
+              Zeit, dazu die Anzahl der Karten im Booster und im Pool -
+              jede Zeile einzeln vorgelesen. Kein Tastenkürzel nötig.
+              Die Zeit steht beim erneuten Ansteuern der Zeile aktuell
+              da (die Zone wird jede Sekunde still nachgefüllt).
+    Ergebnis: OFFEN
+    Falls sich das im laufenden Draft als zu langsam anfühlt: sag es,
+    dann bekommt die Uhr doch eine eigene Taste. Genau dafür ist der
+    Test da.
+
+E4  NEU - Deckbau nach dem Draft
+    Tun:      Draft zu Ende picken, dann den Deckbau abwarten und
+              mindestens zehn Sekunden nichts drücken.
+    Erwartet: Der Fokus steht im Deckbau-Fenster und bleibt dort. Die
+              Lobby darf ihn sich nicht zurückholen, obwohl ihr Reiter
+              dahinter wieder sichtbar wird.
+    Ergebnis: OFFEN
+    Genau dieser Fall ist der Grund für die Ausnahme im Code; wenn hier
+    mitten im Deckbau die Lobby dazwischenfunkt, stimmt die Bedingung
+    nicht.
+
+E5  Turnierfenster
+    Tun:      Während eines Turniers Tab durch die fünf Stationen:
+              Tournament, Standings, Matches, Chat und die Chat-Zeile.
+              Pfeiltasten in der Liste, Enter schaut einem laufenden
+              Match zu.
+    Erwartet: Die Zone "Tournament" liest Name, Art, Stand sowie die
+              Anzahl der Spieler und Matches als einzelne Zeilen. Enter
+              wird nur bei laufenden Matches angeboten; fertige Matches
+              sagen das. Kein Tastenkürzel nötig.
+    Ergebnis: OFFEN
+
+
+F. DIALOGE UND ABSCHLUSS
+------------------------
+
+F1  Registrierung und Passwort vergessen
+    Tun:      Im Verbindungsdialog die Registrierung öffnen. Ctrl+R
+              liest alle Felder mit ihren Werten, Ctrl+Enter schickt ab,
+              Ctrl+Shift+Enter wäre der zweite Knopf. Dasselbe bei
+              "Passwort vergessen".
+    Erwartet: Jedes Feld wird beim Fokus angesagt, Statusmeldungen
+              werden gesprochen.
+    Ergebnis: OFFEN
+
+F2  Fehlerdialog
+    Tun:      Lässt sich nicht absichtlich auslösen. Falls während
+              der Tests einer aufgeht: Ctrl+R erste Zeilen,
+              Ctrl+Shift+R der ganze Text, Ctrl+C kopieren,
+              Ctrl+Enter schließen.
+    Erwartet: Der Dialog meldet sich überhaupt - früher sah es aus,
+              als hänge der Client.
+    Ergebnis: OFFEN
+
+F3  Beenden
+    Tun:      Ctrl+Q, von irgendwo aus.
+    Erwartet: "Quitting.", saubere Abmeldung, Client geht zu.
+    Ergebnis: OFFEN
+
+
+G. FREIE BEOBACHTUNGEN
+----------------------
+
+Alles, was auffällt und oben keinen Platz hat: doppelte oder fehlende
+Ansagen, Stellen an denen die Sprache zu lang wird, Fälle in denen der
+Fokus verloren geht, neue hs_err_pid-Dateien, Abstürze.
+Wann immer eine liste sich aktualisiert, sollte xmage access prüfen,ob sich die Ansage im vergleich geändert hat. Andernfalls soll der screenreader möglichst stumm bleiben.
+-
+-
+-
+
+
+H. WAS DIESER PLAN NICHT ABDECKT
+--------------------------------
+
+Bewusst nicht drin, weil es dafür noch keinen Handler gibt:
+
+- Der Kartenbetrachter (Card Viewer) aus dem Hauptmenü.
+- Deck-Import und -Export über die Zwischenablage.
+- Die kleinen Dialoge: Über, Feedback, Kartenhinweise, eigene
+  Einstellungen, Karteninfo-Fenster.
+
+Zwei Ideen, die aus dem Deckeditor kamen und noch offen sind: Alt+Klick
+auf einen Filter bedeutet in XMage "nur diesen", das könnte ein eigenes
+Kürzel werden; und die Checkbox für eindeutige Kartennamen wird
+vorgelesen, lässt sich aber nicht umschalten.
+
+
+I. RUNDE 2 - nach den Änderungen vom 29. August
+-----------------------------------------------
+
+Neuer Build, MD5 1229b3e15226cbbc1bbd312dc6e5323c, schon installiert.
+Runde 1 oben bleibt stehen, sie ist das Protokoll. Hier nur, was sich
+geändert hat, plus der Block, den du nicht mehr erreicht hast.
+
+WICHTIG, das ändert alles für die Fehlersuche: der Agent schreibt jetzt ein
+Logfile. Es heißt xmage-access.log und liegt im Arbeitsverzeichnis des
+Clients, voraussichtlich also in
+C:\Users\marcel\Downloads\mage\xmage\mage-client. Es wird bei jedem Start
+neu angelegt, und ganz am Anfang sagt der Agent auf der Standardausgabe,
+wohin er schreibt. Wenn unten etwas fehlschlägt: Client zumachen und mir
+sagen, dass die Datei da ist - ich lese sie. Für J1 und J2 ist sie der
+eigentliche Test.
+
+J1  A4 noch einmal - Lobby nach dem Verbinden
+    Tun:      Verbinden, nichts drücken. Danach den Client beenden.
+    Erwartet: Weiterhin offen, ich habe die Ursache noch nicht. Das Log
+              schreibt jetzt mit, was der Agent angefordert hat, welches
+              Fenster in dem Moment aktiv war, und ob das Lobbyfenster den
+              Fokus je gemeldet hat.
+    Ergebnis: OFFEN
+
+J2  D10 noch einmal - Lobby nach dem Match
+    Tun:      Match beenden, fünf Sekunden warten, nichts drücken.
+    Erwartet: Dasselbe; steht mit J1 im selben Log.
+    Ergebnis: OFFEN
+
+J3  Ctrl+F1 im Spiel (war D4)
+    Tun:      Im Spiel Ctrl+F1 drücken, an einer Stelle mit echter Frage -
+              etwa wenn XMage auf deine Antwort wartet.
+    Erwartet: Sag mir bitte, was du hörst: gar nichts, "No current
+              prompt", oder etwas Falsches. Das Log schreibt jede
+              Auslösung mit dem, was gefunden wurde.
+    Ergebnis: OFFEN
+
+J4  Ctrl+A im Deckeditor (war C5)
+    Tun:      Deckeditor öffnen, in eine der Listen tabben, Ctrl+A.
+              Danach dasselbe aus dem Suchfeld heraus.
+    Erwartet: Aus einer Liste heraus öffnet sich jetzt der Länder-Dialog.
+              Im Suchfeld bleibt Ctrl+A "alles markieren", das gehört dort
+              hin. Vorher hat die Liste die Taste selbst verschluckt.
+    Ergebnis: OFFEN
+
+J5  Die Listen sind still geworden (war G)
+    Tun:      In einer Liste stehen bleiben und lesen, während sich im
+              Hintergrund etwas aktualisiert - Lobby, Spielfenster,
+              Draftfenster. Also einfach irgendwo länger verweilen.
+    Erwartet: Der Screenreader schweigt, solange sich an der Liste nichts
+              ändert. Vorher wurde sie jede Sekunde beziehungsweise alle
+              fünf Sekunden neu aufgebaut, ob sich etwas geändert hatte
+              oder nicht.
+    Ergebnis: OFFEN
+
+J6  Lobby ohne Tastenkürzel
+    Tun:      In der Lobby Ctrl+G, Ctrl+J, Ctrl+N, Ctrl+E, Ctrl+D, Ctrl+M
+              und Ctrl+Shift+M drücken. Danach dasselbe mit Tab,
+              Pfeiltasten und Enter erledigen.
+    Erwartet: Die Kürzel tun nichts mehr. Alles davon steht als Zeile in
+              "Actions" oder "Open Games"; die Chat-Zeile erreichst du mit
+              Tab. Sag mir, wenn dir etwas fehlt, das du vorher nur über
+              eine Taste erreicht hast.
+    Ergebnis: OFFEN
+
+J7  Tisch beitreten nur noch mit Ctrl+D
+    Tun:      Einem Tisch beitreten. Ctrl+D für die Deckauswahl. Dann
+              Ctrl+P, Ctrl+R und Ctrl+Enter - die sollen nichts mehr tun.
+              Passwortfeld und OK mit Tab ansteuern.
+    Erwartet: Ctrl+D wie bisher, der Rest über Tab.
+    Ergebnis: OFFEN
+
+J8  Im Spiel ohne die gestrichenen Tasten
+    Tun:      Die Tasten aus dem alten D5 durchprobieren: Ctrl+Left,
+              Ctrl+Right, Ctrl+Enter, Ctrl+D, Ctrl+Shift+Pfeile,
+              Ctrl+Shift+Enter, Ctrl+Shift+D, Ctrl+T, Ctrl+Shift+1,
+              Ctrl+1, Ctrl+2, Ctrl+3, Ctrl+Z, Ctrl+M. Dann ein ganzes
+              Spiel nur mit Tab, Pfeiltasten, Enter und D im
+              barrierefreien Spielfenster.
+    Erwartet: Die Tasten tun nichts mehr. Die Zone "Actions" trägt die
+              Frage, die Knöpfe OK, Cancel, Special und Undo, die
+              Fähigkeiten und die Ziele; "Hand" die Handkarten mit Enter
+              zum Ausspielen; die Schlachtfelder mit Enter zum Anklicken;
+              die Chat-Zeile erreichst du mit Tab. Ctrl+F1 bis Ctrl+F11,
+              Ctrl+L, Ctrl+Shift+L, Ctrl+Shift+M, Ctrl+Shift+F3 bis F11,
+              Ctrl+Shift+H und Ctrl+K bleiben.
+    Ergebnis: OFFEN
+    Wenn hier etwas fehlt, das ohne Taste zu langsam ist: sag es, dann
+    kommt genau die eine zurück.
+
+J9  Der Rest von Runde 1
+    Tun:      E1 bis E5 und F1 bis F3 von oben, die du nicht mehr erreicht
+              hast. Draft und Turnier sind seither umgebaut und haben
+              jetzt eine Zone "Draft" beziehungsweise "Tournament" statt
+              der Kürzel Ctrl+R, Ctrl+T, Ctrl+M und Ctrl+F1.
+    Ergebnis: OFFEN
+
+
+J. NOCH NICHT ANGEFASST
+-----------------------
+
+Aus deinen Ergebnissen offen geblieben:
+
+- A2, die Neuigkeiten-Seite. Du hast recht: das gehört als eigenes Fenster
+  mit navigierbaren Zeilen, nicht als Dialog mit Ctrl+Down und Ctrl+Up.
+  Noch nicht gebaut.

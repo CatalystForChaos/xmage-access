@@ -25,14 +25,17 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Accessible draft window: the booster you are picking from and the pool you
- * have built so far, as two lists you Tab between.
+ * Accessible draft window: the draft's own status, the booster you are
+ * picking from and the pool you have built so far, as three lists you Tab
+ * between.
  *
  * <p>The draft used to be driven by shortcuts on XMage's own draft panel,
  * where the cards are card images in a grid and nothing is reachable by
- * keyboard. Those shortcuts went away with everything else the agent used to
- * bind inside XMage's window; this window is where they come back, bound to
- * its own root pane so they answer here and nowhere else.
+ * keyboard. Those shortcuts are deliberately not carried over here. The
+ * window is shaped like the lobby and game windows instead: everything is a
+ * row in a list, reached with Tab and the arrow keys and acted on with
+ * Enter. The pack, the pick and the clock are rows of their own rather than
+ * keys you would have to know about.
  *
  * <p>Picking goes through {@code SessionHandler.sendCardPick(UUID, UUID,
  * Set)} — the same call XMage's own click handler makes — and then asks the
@@ -40,14 +43,11 @@ import java.util.UUID;
  * step with ours. Whether a pick is allowed at all is XMage's own
  * {@code isAllowedToPick()}, which covers its click-protection timer.
  *
- * Shortcuts:
- *   Tab/Shift+Tab - switch between Booster and Your Picks
- *   Up/Down       - move through the cards in a list
+ * Keys:
+ *   Tab/Shift+Tab - move between Draft, Booster and Your Picks
+ *   Up/Down       - move through a list
  *   Enter         - pick the selected card (in the booster)
  *   D             - read the full card text
- *   Ctrl+R        - read pack, pick and time
- *   Ctrl+T        - read the time remaining
- *   Ctrl+F1       - read all shortcuts
  *   Escape        - back to XMage's own window
  */
 public class AccessibleDraftWindow extends JFrame {
@@ -56,9 +56,12 @@ public class AccessibleDraftWindow extends JFrame {
 
     private final Component draftPanel;
 
+    private final ZoneListPanel statusZone;
     private final ZoneListPanel boosterZone;
     private final ZoneListPanel picksZone;
     private final List<ZoneListPanel> allZones = new ArrayList<>();
+    /** The zones holding cards — the only ones Enter and D mean anything in. */
+    private final List<ZoneListPanel> cardZones = new ArrayList<>();
 
     // Cached reflection references (re-read on every poll)
     private Component draftBooster;   // DraftGrid
@@ -72,8 +75,12 @@ public class AccessibleDraftWindow extends JFrame {
         super("XMage Accessible Draft");
         this.draftPanel = draftPanel;
 
+        statusZone = new ZoneListPanel("Draft");
         boosterZone = new ZoneListPanel("Booster");
         picksZone = new ZoneListPanel("Your Picks");
+        cardZones.add(boosterZone);
+        cardZones.add(picksZone);
+        allZones.add(statusZone);
         allZones.add(boosterZone);
         allZones.add(picksZone);
 
@@ -91,14 +98,16 @@ public class AccessibleDraftWindow extends JFrame {
         JPanel mainPanel = new JPanel();
         mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
         for (ZoneListPanel zone : allZones) {
-            zone.setPreferredSize(new Dimension(580, 300));
-            zone.setMaximumSize(new Dimension(Integer.MAX_VALUE, 400));
+            boolean small = zone == statusZone;
+            zone.setPreferredSize(new Dimension(580, small ? 100 : 300));
+            zone.setMaximumSize(new Dimension(Integer.MAX_VALUE, small ? 120 : 400));
             mainPanel.add(zone);
         }
         add(new JScrollPane(mainPanel), BorderLayout.CENTER);
 
         setFocusCycleRoot(true);
         final List<Component> focusOrder = new ArrayList<>();
+        focusOrder.add(statusZone.getList());
         focusOrder.add(boosterZone.getList());
         focusOrder.add(picksZone.getList());
         setFocusTraversalPolicy(new FocusTraversalPolicy() {
@@ -141,7 +150,7 @@ public class AccessibleDraftWindow extends JFrame {
     }
 
     private void bindKeys() {
-        for (ZoneListPanel zone : allZones) {
+        for (ZoneListPanel zone : cardZones) {
             JList<ZoneItem> list = zone.getList();
 
             list.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "activateItem");
@@ -163,31 +172,6 @@ public class AccessibleDraftWindow extends JFrame {
 
         InputMap windowInput = getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
         ActionMap windowAction = getRootPane().getActionMap();
-
-        windowInput.put(KeyStroke.getKeyStroke(KeyEvent.VK_R, KeyEvent.CTRL_DOWN_MASK), "readStatus");
-        windowAction.put("readStatus", new AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                speak(draftStatus() + boosterZone.getList().getModel().getSize() + " cards in the booster.");
-            }
-        });
-
-        windowInput.put(KeyStroke.getKeyStroke(KeyEvent.VK_T, KeyEvent.CTRL_DOWN_MASK), "readTime");
-        windowAction.put("readTime", new AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                String time = readTimeField();
-                speak(time != null ? "Time remaining: " + time : "No timer.");
-            }
-        });
-
-        windowInput.put(KeyStroke.getKeyStroke(KeyEvent.VK_F1, KeyEvent.CTRL_DOWN_MASK), "readHelp");
-        windowAction.put("readHelp", new AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                readHelp();
-            }
-        });
 
         windowInput.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "returnFocus");
         windowAction.put("returnFocus", new AbstractAction() {
@@ -239,9 +223,9 @@ public class AccessibleDraftWindow extends JFrame {
         refreshZones();
         int count = boosterZone.getList().getModel().getSize();
         speak("Draft. " + draftStatus() + count + " cards to pick from. "
-                + "Tab between booster and your picks, Enter to pick, "
-                + "D for card text. Ctrl+F1 for all shortcuts.");
-        SwingUtilities.invokeLater(() -> boosterZone.getList().requestFocusInWindow());
+                + "Tab between the draft status, the booster and your picks. "
+                + "Enter picks, D reads the card text, Escape returns to XMage.");
+        xmageaccess.util.UiUtils.focusAgentWindow(this, boosterZone.getList());
     }
 
     // ========== REFRESH ==========
@@ -263,6 +247,9 @@ public class AccessibleDraftWindow extends JFrame {
             lastPicksSize = picks.size();
             picksZone.updateItems(picks);
         }
+
+        // Every second, because the clock is one of the rows.
+        statusZone.updateItems(readStatusItems());
     }
 
     /**
@@ -403,6 +390,44 @@ public class AccessibleDraftWindow extends JFrame {
 
     // ========== STATUS ==========
 
+    /**
+     * The pack, the pick and the clock as list rows. XMage keeps each of
+     * them in its own widget on the draft panel, none of which a screen
+     * reader reaches; here they are a zone you Tab to, the way the lobby
+     * carries its own standing information — no key to know about.
+     */
+    private List<ZoneItem> readStatusItems() {
+        List<ZoneItem> items = new ArrayList<>();
+
+        JLabel cardNumber = findFieldTyped(draftPanel, "labelCardNumber", JLabel.class);
+        if (cardNumber != null && cardNumber.getText() != null && !cardNumber.getText().isEmpty()) {
+            items.add(statusItem(cardNumber.getText()));
+        }
+
+        for (int i = 1; i <= 3; i++) {
+            JCheckBox check = findFieldTyped(draftPanel, "checkPack" + i, JCheckBox.class);
+            if (check != null && check.isSelected()) {
+                JTextField packField = findFieldTyped(draftPanel, "editPack" + i, JTextField.class);
+                String packName = packField != null ? packField.getText() : null;
+                if (packName != null && !packName.isEmpty()) {
+                    items.add(statusItem("Pack " + i + ": " + packName));
+                }
+                break;
+            }
+        }
+
+        String time = readTimeField();
+        if (time != null) items.add(statusItem("Time remaining: " + time));
+
+        items.add(statusItem(boosterZone.getList().getModel().getSize() + " cards in the booster"));
+        items.add(statusItem(picksZone.getList().getModel().getSize() + " cards picked"));
+        return items;
+    }
+
+    private ZoneItem statusItem(String text) {
+        return new ZoneItem(text, text, null, ZoneItem.ActionType.NONE);
+    }
+
     /** "Pack 2, Guilds of Ravnica. Card 3 of 15. Time: 0:42. " */
     private String draftStatus() {
         StringBuilder sb = new StringBuilder();
@@ -435,14 +460,6 @@ public class AccessibleDraftWindow extends JFrame {
         if (timeField == null) return null;
         String text = timeField.getText();
         return text != null && !text.isEmpty() ? text : null;
-    }
-
-    private void readHelp() {
-        speak("Draft shortcuts. Tab and Shift+Tab switch between the booster "
-                + "and your picks. Up and Down move through the cards. "
-                + "Enter picks the selected card. D reads the full card text. "
-                + "Ctrl+R reads pack, pick and time. Ctrl+T reads the time "
-                + "remaining. Escape returns to XMage.");
     }
 
     // ========== HELPERS ==========

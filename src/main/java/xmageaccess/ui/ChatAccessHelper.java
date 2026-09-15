@@ -22,13 +22,11 @@ import java.util.UUID;
  *   - Auto-announces new player messages (not game/status spam)
  *   - readRecentChat(n) reads last N messages
  *   - sendMessage(text) sends a chat message
- *   - focusInput() focuses the chat input field
  */
 public class ChatAccessHelper {
 
     private final Object chatPanel; // ChatPanelBasic instance
     private JEditorPane txtConversation;
-    private JTextField txtMessage;
     private UUID chatId;
     private String lastKnownText = "";
     private final List<String> messageHistory = new ArrayList<>();
@@ -48,7 +46,6 @@ public class ChatAccessHelper {
     public boolean attach() {
         try {
             txtConversation = findFieldTyped(chatPanel, "txtConversation", JEditorPane.class);
-            txtMessage = findFieldTyped(chatPanel, "txtMessage", JTextField.class);
             chatId = findFieldTyped(chatPanel, "chatId", UUID.class);
 
             if (txtConversation == null) {
@@ -225,18 +222,6 @@ public class ChatAccessHelper {
         } catch (Exception e) {
             speak("Failed to send message.");
             System.err.println("[XMage Access] Chat send error: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Focuses the chat input field so the user can type.
-     */
-    public void focusInput() {
-        if (txtMessage != null) {
-            txtMessage.requestFocusInWindow();
-            speak("Chat input focused. Type message and press Enter to send. Escape to leave.");
-        } else {
-            speak("Chat input not available.");
         }
     }
 

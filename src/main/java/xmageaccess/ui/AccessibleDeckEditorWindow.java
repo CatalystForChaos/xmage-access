@@ -37,15 +37,6 @@ import java.util.UUID;
  */
 public class AccessibleDeckEditorWindow extends JFrame {
 
-    // Track whether any deck editor window is currently visible
-    private static final java.util.Set<AccessibleDeckEditorWindow> _activeWindows =
-            java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
-
-    /** Returns true if any AccessibleDeckEditorWindow is currently showing. */
-    public static boolean isAnyWindowVisible() {
-        return !_activeWindows.isEmpty();
-    }
-
     private final Component deckEditorPanel;
 
     // Search bar
@@ -294,6 +285,20 @@ public class AccessibleDeckEditorWindow extends JFrame {
                 @Override
                 public void actionPerformed(ActionEvent e) {
                     readSelectedDetail();
+                }
+            });
+
+            // Ctrl+A has to be taken off the list before the window can see
+            // it: every look and feel binds it WHEN_FOCUSED to "selectAll",
+            // and that map is consulted before WHEN_IN_FOCUSED_WINDOW, so
+            // the window's Add Lands never fired while a list had the focus.
+            // In a SINGLE_SELECTION list select-all does nothing anyway. The
+            // search field keeps its own select-all, where it is worth having.
+            list.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_A, KeyEvent.CTRL_DOWN_MASK), "addLands");
+            list.getActionMap().put("addLands", new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    clickXMageButton(xmageBtnAddLand, "Add lands");
                 }
             });
         }
@@ -558,19 +563,8 @@ public class AccessibleDeckEditorWindow extends JFrame {
     }
 
     @Override
-    public void setVisible(boolean visible) {
-        super.setVisible(visible);
-        if (visible) {
-            _activeWindows.add(this);
-        } else {
-            _activeWindows.remove(this);
-        }
-    }
-
-    @Override
     public void dispose() {
         stopPolling();
-        _activeWindows.remove(this);
         super.dispose();
     }
 
@@ -1614,6 +1608,11 @@ public class AccessibleDeckEditorWindow extends JFrame {
             }
         }
         return null;
+    }
+
+    /** Brings this window forward and puts the caret in the search field. */
+    public void takeFocus() {
+        xmageaccess.util.UiUtils.focusAgentWindow(this, searchField);
     }
 
     private void returnFocusToXMage() {
