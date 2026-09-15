@@ -20,7 +20,7 @@ javac -cp target/xmage-access-0.1.0.jar -d "$OUT" \
 
 for h in GameActionsHarness FilterHarness WhatsNewHarness PacksSelectorHarness \
          DraftWindowHarness TournamentWindowHarness FocusHarness \
-         ZoneListHarness; do
+         ZoneListHarness HandoverHarness; do
   java -cp "$OUT;target/xmage-access-0.1.0.jar" xmageaccess.ui.$h
 done
 ```
@@ -105,6 +105,19 @@ gating predicates answer for the right windows. Its frames are non-focusable
 and placed far off-screen, so the run neither shows anything nor takes the
 keyboard from the terminal; that also forces the branch worth testing, the one
 where the window is not focused.
+
+**`HandoverHarness`** — where the keyboard goes when one of the agent's
+windows closes. XMage never hides the lobby for a game — `MageFrame.setActive`
+only moves the game's pane in front, in the source and in the installed
+client's bytecode alike — so the lobby cannot take the keyboard back by
+noticing that it reappeared. `UIWatcher` instead waits for a window to close
+and hands the keyboard to the window belonging to the pane XMage shows in
+front. This pins that the pane is read from `MageFrame`'s private static
+`activeFrame`, that the window chosen is the one whose panel sits inside that
+pane — the lobby's while XMage shows the lobby, the tournament's while it
+shows that — and that a window no longer showing is not brought back. Its
+stubs, `MageFrame` and `MagePane`, carry only that field and that class; the
+wait for the window manager is left to the test round.
 
 **`PacksSelectorHarness`** — the pack selector's cursor. It shows the
 checkboxes are reachable at all (they sit in a heavyweight `java.awt.Panel`

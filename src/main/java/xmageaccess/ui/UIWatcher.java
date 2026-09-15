@@ -535,6 +535,102 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
         }
     }
 
+    // ========== KEYBOARD HAND-OVER ==========
+
+    /** How long after a window closes before looking at where the keyboard went. */
+    private static final int HANDOVER_DELAY_MS = 500;
+
+    /** When {@code window} closes, see that the keyboard does not stay in XMage's frame. */
+    private void returnKeyboardOnClose(final Window window) {
+        window.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosed(WindowEvent e) {
+                window.removeWindowListener(this);
+                returnKeyboardAfterClose(window.getClass().getSimpleName());
+            }
+        });
+    }
+
+    /**
+     * Once one of the agent's windows has closed, hands the keyboard to the
+     * accessible window for whatever XMage now shows in front — unless it is
+     * already in another agent window.
+     *
+     * <p>This is how the lobby gets the keyboard back after a match (test D10).
+     * It cannot wait for the lobby to reappear, because XMage never hides it
+     * for a game: {@code MageFrame.setActive} only moves the game's pane in
+     * front. When the game ends, {@code MagePane.removeFrame} clears the
+     * global focus owner, deactivates the pane and removes it; the accessible
+     * game window closes a moment later, and Windows hands the focus to
+     * XMage's frame, where the agent takes no keys.
+     *
+     * <p>Where the focus went is only settled once the window manager has
+     * answered the close, so the check waits briefly instead of asking in the
+     * same event.
+     */
+    private void returnKeyboardAfterClose(final String closed) {
+        Timer timer = new Timer(HANDOVER_DELAY_MS, e -> {
+            Window active = KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
+            String activeName = active == null ? "none" : active.getClass().getName();
+            if (xmageaccess.util.UiUtils.isAgentWindowActive()) {
+                xmageaccess.util.Log.event("Focus", closed + " closed; the keyboard is in "
+                        + activeName + ", left there");
+                return;
+            }
+            Window target = windowForPane(activePane(), candidateWindows());
+            xmageaccess.util.Log.event("Focus", closed + " closed; active now: " + activeName
+                    + "; handing the keyboard to "
+                    + (target == null ? "nobody" : target.getClass().getSimpleName()));
+            if (target != null) {
+                xmageaccess.util.UiUtils.focusAgentWindow(target, null);
+            }
+        });
+        timer.setRepeats(false);
+        timer.start();
+    }
+
+    /** XMage's pane in front: {@code MageFrame.activeFrame}, private and static. Null if none. */
+    static Component activePane() {
+        Class<?> mageFrame = xmageaccess.util.ReflectionUtils.findClass("mage.client.MageFrame");
+        return mageFrame == null ? null
+                : xmageaccess.util.ReflectionUtils.getField(null, mageFrame, "activeFrame", Component.class);
+    }
+
+    /** Every accessible window the agent has open, keyed by the XMage panel it belongs to. */
+    private Map<Component, Window> candidateWindows() {
+        Map<Component, Window> windows = new LinkedHashMap<>();
+        for (Map.Entry<Component, Object> entry : attachedHandlers.entrySet()) {
+            Object handler = entry.getValue();
+            if (handler == lobbyHandler && lobbyWindow != null) {
+                windows.put(entry.getKey(), lobbyWindow);
+            } else if (handler instanceof AccessibleDraftWindow
+                    || handler instanceof AccessibleTournamentWindow) {
+                windows.put(entry.getKey(), (Window) handler);
+            }
+        }
+        windows.putAll(gameWindows);
+        windows.putAll(deckEditorWindows);
+        windows.putAll(sideboardingWindows);
+        return windows;
+    }
+
+    /**
+     * The showing window whose XMage panel sits inside {@code pane}, or null.
+     * A window the user closed is not brought back. Package-private for
+     * HandoverHarness.
+     */
+    static Window windowForPane(Component pane, Map<? extends Component, ? extends Window> windows) {
+        if (pane == null) return null;
+        for (Map.Entry<? extends Component, ? extends Window> entry : windows.entrySet()) {
+            Window window = entry.getValue();
+            if (window != null && window.isVisible()
+                    && SwingUtilities.isDescendingFrom(entry.getKey(), pane)) {
+                return window;
+            }
+        }
+        return null;
+    }
+
     private void attachConnectDialog(Component dialog) {
         System.out.println("[XMage Access] Connect dialog detected.");
         connectHandler = new ConnectDialogHandler(dialog);
@@ -585,6 +681,7 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
             sbHandler.setVisible(true);
             sbHandler.announceWelcome();
             sideboardingWindows.put(panel, sbHandler);
+            returnKeyboardOnClose(sbHandler);
             attachedHandlers.put(panel, sbHandler);
             System.out.println("[XMage Access] Sideboarding window opened.");
         } else {
@@ -598,6 +695,7 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
             window.setVisible(true);
             window.takeFocus();
             deckEditorWindows.put(panel, window);
+            returnKeyboardOnClose(window);
             System.out.println("[XMage Access] Accessible deck editor window opened.");
         }
     }
@@ -640,6 +738,7 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
         window.setVisible(true);
         window.takeFocus();
         gameWindows.put(panel, window);
+        returnKeyboardOnClose(window);
 
         // Connect handler to window for event-driven refreshes
         handler.setAccessibleWindow(window);
@@ -743,6 +842,7 @@ public class UIWatcher implements AWTEventListener, PropertyChangeListener {
         window.setVisible(true);
         window.announceWelcome();
         attachedHandlers.put(panel, window);
+        returnKeyboardOnClose(window);
         System.out.println("[XMage Access] Accessible tournament window opened.");
     }
 

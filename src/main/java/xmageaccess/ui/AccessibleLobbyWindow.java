@@ -382,8 +382,14 @@ public class AccessibleLobbyWindow extends JFrame {
                     return;
                 }
                 if (!lobbyPanel.isVisible()) {
-                    // User entered a game or switched tabs. Hide, but keep
-                    // polling so the window can come back with the lobby.
+                    // Hide along with the lobby panel, but keep polling so the
+                    // window can come back with it. XMage does not hide this
+                    // panel for a game, a draft or a tournament: setActive
+                    // only moves the new pane in front, and hideTables hides
+                    // the enclosing TablesPane rather than the panel. Coming
+                    // back from a game is handled where the game window
+                    // closes, in UIWatcher.returnKeyboardAfterClose; this
+                    // stays for a client that does hide the panel.
                     if (isVisible()) {
                         autoHidden = true;
                         setVisible(false);
@@ -393,11 +399,8 @@ public class AccessibleLobbyWindow extends JFrame {
                 if (autoHidden && !isVisible()) {
                     autoHidden = false;
                     setVisible(true);
-                    // Back from a game or a draft. The lobby's shortcuts only
-                    // answer while this window is active, so take the keyboard
-                    // — unless the user is already in another accessible
-                    // window, as they are while building a deck after a draft,
-                    // which happens with the lobby tab visible behind it.
+                    // Take the keyboard back with it, unless the user is
+                    // already in another accessible window.
                     if (!xmageaccess.util.UiUtils.isAgentWindowActive()) {
                         takeFocus();
                     }
