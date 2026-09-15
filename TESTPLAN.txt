@@ -185,7 +185,7 @@ C5  Länder hinzufügen
               Ctrl+Enter fügt hinzu.
     Erwartet: Jeder Schritt wird gesprochen; früher war der Dialog
               stumm.
-    Ergebnis: ctrl+a scheint nichts zu tun.
+    Ergebnis: OK..
 
 C6  Deck-Operationen
     Tun:      Ctrl+N neues Deck, Ctrl+O laden, Ctrl+S speichern,
@@ -226,7 +226,7 @@ D4  Vorlesen im Spiel
               Ctrl+L letzte 3 Logzeilen, Ctrl+Shift+L letzte 10,
               Ctrl+Shift+M letzte 5 Chatzeilen.
     Erwartet: Notiere nur, was schweigt oder Falsches sagt.
-    Ergebnis: ctrl+f1
+    Ergebnis: OK.
 
 D5  Spielen
     Tun:      Ctrl+Left und Ctrl+Right durch die Hand, Ctrl+D für den
@@ -285,8 +285,7 @@ D10 NEU - nach dem Spiel holt sich die Lobby die Tastatur
               Sekunden warten und nichts drücken.
     Erwartet: Das Lobby-Fenster kommt zurück und meldet "Actions. N
               items." Ctrl+G antwortet sofort wieder.
-    Ergebnis: nein, er springt ins clientfenster. Loby durch alt tab erreichbar.
-
+    Ergebnis: OK.
 
 E. DRAFT UND TURNIER
 --------------------
@@ -302,7 +301,7 @@ E1  Set-Pool für den Zufalls-Draft
     Erwartet: Der Name des Sets kommt zuerst, dann der Code buchstabiert,
               dann ob es drin ist. Ctrl+Enter bei leerem Pool wird
               abgelehnt, statt XMages stummen Hinweis zu zeigen.
-    Ergebnis: OFFEN
+    Ergebnis: nicht nötig. Im Spiel existiert eine Barrierefreie Möglichkeit im Spiel.
 
 E2  NEU - das Draftfenster bekommt die Tastatur
     Tun:      Draft starten und den ersten Booster abwarten, ohne etwas
@@ -311,7 +310,7 @@ E2  NEU - das Draftfenster bekommt die Tastatur
               "Booster" - nicht in der ersten Zone "Draft", denn im
               Booster wird gearbeitet. Die Zeit läuft, das muss ohne
               Alt+Tab gehen.
-    Ergebnis: OFFEN
+    Ergebnis: Läuft, aber es gibt noch keine möglichkeit, den draft barrierefrei zu starten. 
 
 E3  Karten picken
     Tun:      Pfeiltasten durch den Booster, D für den vollen
@@ -320,7 +319,7 @@ E3  Karten picken
               Picks auf; XMages eigene Anzeige zieht mit. Ein zu
               schneller zweiter Pick wird abgelehnt, nicht doppelt
               gesendet.
-    Ergebnis: OFFEN
+    Ergebnis: ja.
 
 E3b Draft-Status als eigene Zone
     Tun:      Shift+Tab aus dem Booster in die Zone "Draft", dann mit
@@ -330,7 +329,7 @@ E3b Draft-Status als eigene Zone
               jede Zeile einzeln vorgelesen. Kein Tastenkürzel nötig.
               Die Zeit steht beim erneuten Ansteuern der Zeile aktuell
               da (die Zone wird jede Sekunde still nachgefüllt).
-    Ergebnis: OFFEN
+    Ergebnis: ja.
     Falls sich das im laufenden Draft als zu langsam anfühlt: sag es,
     dann bekommt die Uhr doch eine eigene Taste. Genau dafür ist der
     Test da.
@@ -341,7 +340,7 @@ E4  NEU - Deckbau nach dem Draft
     Erwartet: Der Fokus steht im Deckbau-Fenster und bleibt dort. Die
               Lobby darf ihn sich nicht zurückholen, obwohl ihr Reiter
               dahinter wieder sichtbar wird.
-    Ergebnis: OFFEN
+    Ergebnis: OK.
     Genau dieser Fall ist der Grund für die Ausnahme im Code; wenn hier
     mitten im Deckbau die Lobby dazwischenfunkt, stimmt die Bedingung
     nicht.
@@ -368,7 +367,7 @@ F1  Registrierung und Passwort vergessen
               "Passwort vergessen".
     Erwartet: Jedes Feld wird beim Fokus angesagt, Statusmeldungen
               werden gesprochen.
-    Ergebnis: OFFEN
+    Ergebnis: OK.
 
 F2  Fehlerdialog
     Tun:      Lässt sich nicht absichtlich auslösen. Falls während
@@ -377,12 +376,12 @@ F2  Fehlerdialog
               Ctrl+Enter schließen.
     Erwartet: Der Dialog meldet sich überhaupt - früher sah es aus,
               als hänge der Client.
-    Ergebnis: OFFEN
+    Ergebnis: OK.
 
 F3  Beenden
     Tun:      Ctrl+Q, von irgendwo aus.
     Erwartet: "Quitting.", saubere Abmeldung, Client geht zu.
-    Ergebnis: OFFEN
+    Ergebnis: OK.
 
 
 G. FREIE BEOBACHTUNGEN
@@ -395,7 +394,7 @@ Wann immer eine liste sich aktualisiert, sollte xmage access prüfen,ob sich die
 -
 -
 -
-
+Es gibt noch keine wirklich barrierefreie Übersicht, bevor man ein Spiel oder einen draft startet.
 
 H. WAS DIESER PLAN NICHT ABDECKT
 --------------------------------
@@ -435,12 +434,12 @@ J1  A4 noch einmal - Lobby nach dem Verbinden
               schreibt jetzt mit, was der Agent angefordert hat, welches
               Fenster in dem Moment aktiv war, und ob das Lobbyfenster den
               Fokus je gemeldet hat.
-    Ergebnis: OFFEN
+    Ergebnis: OK.
 
 J2  D10 noch einmal - Lobby nach dem Match
     Tun:      Match beenden, fünf Sekunden warten, nichts drücken.
     Erwartet: Dasselbe; steht mit J1 im selben Log.
-    Ergebnis: OFFEN
+    Ergebnis: OK.
 
 J3  Ctrl+F1 im Spiel (war D4)
     Tun:      Im Spiel Ctrl+F1 drücken, an einer Stelle mit echter Frage -
@@ -448,7 +447,7 @@ J3  Ctrl+F1 im Spiel (war D4)
     Erwartet: Sag mir bitte, was du hörst: gar nichts, "No current
               prompt", oder etwas Falsches. Das Log schreibt jede
               Auslösung mit dem, was gefunden wurde.
-    Ergebnis: OFFEN
+    Ergebnis: läuft wie es soll.
 
 J4  Ctrl+A im Deckeditor (war C5)
     Tun:      Deckeditor öffnen, in eine der Listen tabben, Ctrl+A.
@@ -456,7 +455,7 @@ J4  Ctrl+A im Deckeditor (war C5)
     Erwartet: Aus einer Liste heraus öffnet sich jetzt der Länder-Dialog.
               Im Suchfeld bleibt Ctrl+A "alles markieren", das gehört dort
               hin. Vorher hat die Liste die Taste selbst verschluckt.
-    Ergebnis: OFFEN
+    Ergebnis: OK.
 
 J5  Die Listen sind still geworden (war G)
     Tun:      In einer Liste stehen bleiben und lesen, während sich im
@@ -466,7 +465,7 @@ J5  Die Listen sind still geworden (war G)
               ändert. Vorher wurde sie jede Sekunde beziehungsweise alle
               fünf Sekunden neu aufgebaut, ob sich etwas geändert hatte
               oder nicht.
-    Ergebnis: OFFEN
+    Ergebnis: OK.
 
 J6  Lobby ohne Tastenkürzel
     Tun:      In der Lobby Ctrl+G, Ctrl+J, Ctrl+N, Ctrl+E, Ctrl+D, Ctrl+M
@@ -476,14 +475,14 @@ J6  Lobby ohne Tastenkürzel
               "Actions" oder "Open Games"; die Chat-Zeile erreichst du mit
               Tab. Sag mir, wenn dir etwas fehlt, das du vorher nur über
               eine Taste erreicht hast.
-    Ergebnis: OFFEN
+    Ergebnis: OK.
 
 J7  Tisch beitreten nur noch mit Ctrl+D
     Tun:      Einem Tisch beitreten. Ctrl+D für die Deckauswahl. Dann
               Ctrl+P, Ctrl+R und Ctrl+Enter - die sollen nichts mehr tun.
               Passwortfeld und OK mit Tab ansteuern.
     Erwartet: Ctrl+D wie bisher, der Rest über Tab.
-    Ergebnis: OFFEN
+    Ergebnis: OK.
 
 J8  Im Spiel ohne die gestrichenen Tasten
     Tun:      Die Tasten aus dem alten D5 durchprobieren: Ctrl+Left,
@@ -499,7 +498,7 @@ J8  Im Spiel ohne die gestrichenen Tasten
               die Chat-Zeile erreichst du mit Tab. Ctrl+F1 bis Ctrl+F11,
               Ctrl+L, Ctrl+Shift+L, Ctrl+Shift+M, Ctrl+Shift+F3 bis F11,
               Ctrl+Shift+H und Ctrl+K bleiben.
-    Ergebnis: OFFEN
+    Ergebnis: OK.
     Wenn hier etwas fehlt, das ohne Taste zu langsam ist: sag es, dann
     kommt genau die eine zurück.
 
@@ -508,7 +507,7 @@ J9  Der Rest von Runde 1
               hast. Draft und Turnier sind seither umgebaut und haben
               jetzt eine Zone "Draft" beziehungsweise "Tournament" statt
               der Kürzel Ctrl+R, Ctrl+T, Ctrl+M und Ctrl+F1.
-    Ergebnis: OFFEN
+    Ergebnis: OK.
 
 
 J. NOCH NICHT ANGEFASST
@@ -651,3 +650,4 @@ Neuigkeiten - und die Tastatur danach nicht dort ist, wo du sie erwartest.
 -
 -
 -
+Bitte lösche die erledigten Punkte.
