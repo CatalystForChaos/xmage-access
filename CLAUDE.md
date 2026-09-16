@@ -44,6 +44,10 @@ To test manually, copy the built JAR to `xmage/mage-client/lib/` in an XMage ins
 
 - The Maven version and JAR filename stay at `0.1.0`; actual releases are git tags (`v0.1.x`). Don't "fix" the pom version to match a tag.
 - The JAR in `dist/` is a prebuilt release artifact, not produced by the build. Update it manually when cutting a release.
+- **`dist/` is the release bundle.** `tools/make-release-zip.sh` copies all of it except `META-INF/` (a leftover of XMage's own launcher JAR) into one `xmage-accessible/` folder and writes `target/xmage-accessible.zip`, the asset attached to the GitHub release. A new file only has to be put in `dist/` to ship.
+- **Every release carries `dist/CHANGELOG.txt`**, whose top entry is the release being cut: what is new, what changed, what was fixed, and — since the agent keeps trading shortcuts for lists — which shortcuts are gone. Written for the user, not for git: plain text like `README-accessible.txt`, no markdown tables, no version numbers of internals. Since v0.1.14.
+- **`dist/README-accessible.txt` is the user's manual and goes stale silently.** It documented about twenty removed keys by the time v0.1.14 was cut. Check it against the actual bindings whenever a release changes a shortcut or adds a window — the key maps in `ui/Accessible*Window.java`, the javadoc atop `GamePanelHandler`, and the dialog handlers' dispatchers are the truth.
+- The order is: feature/doc commits, then the docs above, then a **jar-only** commit `release: v0.1.X — update dist JAR`, then an annotated tag `v0.1.X` with the message `XMage Access v0.1.X`.
 
 ## Architecture
 

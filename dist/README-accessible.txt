@@ -16,6 +16,7 @@ WHAT'S INCLUDED
 - startClient-accessible.command  (macOS direct launch, always accessible)
 - tolk/x64/  (64-bit Tolk DLLs for NVDA/JAWS on Windows)
 - tolk/x86/  (32-bit Tolk DLLs, use only if running 32-bit Java on Windows)
+- CHANGELOG.txt  (what changed in this and every earlier release)
 - This README
 
 
@@ -122,13 +123,25 @@ HOW IT WORKS
 The mod adds two layers of accessibility:
 
 1. Accessible windows that open alongside XMage, for the game, the
-   lobby, the deck editor, sideboarding, drafts and tournaments
+   lobby, the waiting room before a game, the deck editor,
+   sideboarding, drafts, tournaments and the news page
 2. Keyboard shortcuts inside those windows
 
-The shortcuts work while one of those windows is in front. XMage's
-own window keeps its own keyboard: the mod takes no keys there,
-apart from Ctrl+Q to quit and the shortcuts of the dialogs XMage
-opens, which have no accessible window of their own.
+In these windows everything is a row in a list: cards, players,
+messages, and the things you can do. Tab moves between the lists,
+the arrow keys move within one, Enter acts on the selected row, and
+D reads it in full. That is why there are few shortcuts - a list you
+can walk through needs none.
+
+The shortcuts that remain work while one of those windows is in
+front. XMage's own window keeps its own keyboard: the mod takes no
+keys there, apart from Ctrl+Q to quit and the shortcuts of the
+dialogs XMage opens, which have no accessible window of their own.
+
+A window of the mod's takes the keyboard when it opens, and hands it
+on when it closes: half a second after it goes, the keyboard moves
+to the accessible window of whatever XMage now shows in front. After
+a game that is usually the lobby.
 
 
 ACCESSIBLE GAME WINDOW
@@ -202,9 +215,9 @@ The zones (in Tab order):
      The last 10 game chat messages from the players.
      Incoming player messages are also announced automatically.
 
-Below the zones is the "Send Game Chat Message" input bar:
-type a message and press Enter to send it to the game chat
-(the chat your opponent sees). Ctrl+M jumps straight to it.
+Below the zones is the "Send Game Chat Message" input bar, the last
+stop in the Tab order: type a message and press Enter to send it to
+the game chat (the chat your opponent sees).
 
 All zones update automatically.
 
@@ -215,7 +228,8 @@ KEYBOARD SHORTCUTS DURING A GAME
 These work while the accessible game window is in front, no
 matter which zone inside it has focus:
 
-Reading game state:
+Reading game state. These answer from wherever you are, without
+taking the cursor out of the list you are in:
   Ctrl+F1           Read current prompt and phase
   Ctrl+F2           Read all player life totals and info
   Ctrl+F3           Read your hand (full list)
@@ -225,35 +239,21 @@ Reading game state:
   Ctrl+F7           Read exile zones
   Ctrl+F8           Read combat info (attackers/blockers)
   Ctrl+F9           Read your mana pool
-
-Hand navigation:
-  Ctrl+Left/Right   Move through cards in hand
-  Ctrl+Enter        Play/cast the card at your cursor
-  Ctrl+D            Read detailed card info
-
-Battlefield navigation:
-  Ctrl+Shift+Left/Right    Move through permanents
-  Ctrl+Shift+Up/Down       Switch between players
-  Ctrl+Shift+Enter         Click the permanent at your cursor
-  Ctrl+Shift+D             Read permanent detail
-
-Buttons:
-  Ctrl+1            Click OK / Yes / left button
-  Ctrl+2            Click Cancel / No / right button
-  Ctrl+3            Click Special button
-  Ctrl+Z            Undo
-
-Targets and abilities:
-  Ctrl+T                  Read available targets or abilities
-  Ctrl+Shift+1 through 9  Select target or ability by number
+  Ctrl+F10          Read the command zone
+  Ctrl+F11          Read revealed and looked-at cards
 
 Game log:
   Ctrl+L            Read last 3 game log entries
   Ctrl+Shift+L      Read last 10 game log entries
 
 Game chat:
-  Ctrl+M            Focus the game chat input in the accessible window
   Ctrl+Shift+M      Read the last 5 game chat messages
+
+Playing a card, clicking a button, choosing a target, attacking and
+blocking have no shortcuts, because each of them is a row: Enter on
+a card in Hand plays it, Enter on a button, a target or an ability
+in Actions chooses it, Enter on one of your creatures in Your
+Battlefield declares it when the game asks you to attack or block.
 
 Skip actions (pass priority without answering every step):
   Ctrl+Shift+F3     Cancel all skip actions
@@ -300,18 +300,37 @@ Connect dialog:
   Tab through the fields (server, port, username, password).
   The mod announces each field name and its current value.
   Press Enter or click Connect to join.
+  The "Show what's new" button opens XMage's news page in a window
+  of its own - see WHAT'S NEW further down.
 
-Lobby:
-  Ctrl+G            List active games
-  Ctrl+Up/Down      Navigate games
-  Ctrl+J            Join selected game
-  Ctrl+N            Create new game
+Lobby window:
+  Connecting opens a window called "XMage Accessible Lobby" and puts
+  the keyboard into it. Four lists, Tab moves between them, and a
+  box to type into the server chat at the end:
 
-Join table dialog (opens after Ctrl+J):
+  1. Actions
+     New Game, New Tournament, Open Deck Editor, Download Images,
+     Preferences, and Connect / Disconnect. Press Enter on the one
+     you want.
+
+  2. Open Games
+     Every table on the server. Enter joins the selected one and
+     opens the join table dialog; D reads the whole entry.
+
+  3. Players Online
+     Who is on the server.
+
+  4. Chat
+     The last messages in the server chat. Below it, the "Send Chat
+     Message" box: type and press Enter.
+
+  Escape returns the focus to XMage's own window.
+
+Join table dialog (Enter on a game in Open Games):
+  The dialog announces the table, the deck you have chosen and what
+  it needs. Tab reaches the password field and the OK button, and
+  each field says what it is when you land on it.
   Ctrl+D            Choose a deck (accessible list, not a file dialog)
-  Ctrl+P            Focus the password field
-  Ctrl+R            Read what is currently selected
-  Ctrl+Enter        Join the table
 
 Register / reset password (from the connect dialog):
   Tab through the fields, each one is announced with its value.
@@ -328,12 +347,60 @@ Error messages:
   Ctrl+Enter        Close
 
 
+WAITING ROOM
+------------
+
+After New Game, New Tournament, or joining someone else's table, a
+window called "XMage Accessible Waiting Room" opens with the
+keyboard in its Actions list. Four lists, Tab moves between them:
+
+  Table    what kind of table it is, the game type, the deck type,
+           how many seats are taken, the state, and who owns it
+  Seats    one row per seat, with the player's name and type - a
+           computer opponent shows its skill level. D reads the
+           whole entry.
+  Actions  "Start the game" (or "Start the tournament") if the table
+           is yours, and "Leave the table" for everyone. If not all
+           seats are taken yet, the start row says so.
+  Chat     the messages at this table
+
+Players joining and leaving are announced, and so is the table
+becoming ready to start. Press Enter on "Start the game" to start;
+the game window takes over from there. Enter on "Leave the table"
+says "Left the table." and hands the keyboard back to the lobby.
+
+Moving seats up and down is not offered here; XMage's own buttons
+for it have no equivalent in this window yet.
+
+
+WHAT'S NEW
+----------
+
+XMage shows a news page after an update, drawn as a web page inside
+a dialog where a screen reader finds nothing at all. The mod opens
+it as "XMage Access - What's new" instead, with three lists:
+
+  What's new   the page itself, one row per paragraph, heading or
+               list item. Headings end in the word "heading", lines
+               with a link end in the word "link". Enter on such a
+               line opens the link in your browser. D reads a line
+               in full.
+  Sections     the headings on the page. Enter on one moves to it in
+               the first list and says which line of how many it is.
+  Actions      open the whole page in your browser, copy it to the
+               clipboard, or close the news.
+
+Escape closes the window. The page can be long - several hundred
+lines - which is why the Sections list is there.
+
+
 DECK EDITOR
 -----------
 
-Open the deck editor from the lobby with Ctrl+E. An accessible
-deck editor window opens with zones you navigate with Tab.
-Press Ctrl+F1 to hear all available shortcuts.
+Open the deck editor from the lobby: press Enter on "Open Deck
+Editor" in the Actions list. An accessible deck editor window opens
+with zones you navigate with Tab. Press Ctrl+F1 to hear all
+available shortcuts.
 
 Navigation:
   Tab / Shift+Tab   Move between zones (search, results, deck, sideboard)
@@ -423,18 +490,18 @@ DRAFT
 -----
 
 When a draft starts, a window called "XMage Accessible Draft" opens
-with two lists:
+and takes the keyboard. Three lists:
 
+  Draft        the pack and its name, the pick number, the time
+               remaining, how many cards are in the booster and how
+               many you have picked - one per row
   Booster      the cards in front of you this pick
   Your Picks   everything you have taken so far
 
-  Tab/Shift+Tab     Switch between the two lists
-  Up/Down           Move through the cards
+  Tab/Shift+Tab     Move between the lists
+  Up/Down           Move through the rows
   Enter             Pick the selected card (in the booster)
   D                 Read the full card text
-  Ctrl+R            Read pack, pick number and time
-  Ctrl+T            Read the time remaining
-  Ctrl+F1           Read all shortcuts
   Escape            Back to XMage's own window
 
 A new pack is announced as it arrives, with the first card in it.
@@ -446,8 +513,10 @@ TOURNAMENT
 ----------
 
 A tournament opens a window called "XMage Accessible Tournament"
-with three lists and a chat box:
+with four lists and a chat box:
 
+  Tournament   its name, its type, its state, and how many players
+               and matches there are - one per row
   Standings    the players, with their scores
   Matches      every match, its state and result
   Chat         the last messages in the tournament chat
@@ -455,10 +524,10 @@ with three lists and a chat box:
   Tab/Shift+Tab     Move between the lists and the chat box
   Up/Down           Move through a list
   Enter             Watch the selected match (in Matches)
-  Ctrl+R            Read name, type and state
-  Ctrl+M            Jump to the chat box
-  Ctrl+F1           Read all shortcuts
   Escape            Back to XMage's own window
+
+The chat box is the last stop in the Tab order: type a message and
+press Enter to send it to the tournament chat.
 
 Only a match that is being played right now can be watched; those
 say "can be watched" when you arrow onto them. Incoming chat is read
@@ -474,15 +543,17 @@ TYPICAL GAME FLOW
 2. Check "Enable screen reader support", then Launch XMage
 3. In the XMage launcher, click Launch Client (or Client+Server)
 4. Connect to a server (or localhost if running your own)
-5. In the lobby, create a new game (Ctrl+N)
-6. Pick deck settings, start the game
-7. The accessible window opens automatically
-8. Tab to the Actions zone to hear the current prompt
-9. Tab to Hand to see your cards, press Enter to play one
-10. Tab to Actions to click OK/Cancel when prompted
-11. When attacking: Tab to Your Battlefield, arrow to a creature, Enter
-12. When blocking: same process
-13. Use D anytime to hear full card text
+5. In the lobby window, Enter on "New Game" in the Actions list
+6. Pick the deck and the settings in XMage's dialog and confirm
+7. The waiting room window opens; Enter on "Start the game"
+8. The accessible game window opens and takes the keyboard
+9. Tab to the Actions zone to hear the current prompt
+10. Tab to Hand to see your cards, press Enter to play one
+11. Tab to Actions to click OK/Cancel when prompted
+12. When attacking: Tab to Your Battlefield, arrow to a creature, Enter
+13. When blocking: same process
+14. Use D anytime to hear full card text
+15. After the match the keyboard goes back to the lobby window
 
 
 TROUBLESHOOTING
@@ -500,8 +571,23 @@ Speech is Windows built-in voice instead of NVDA/JAWS:
   and nvdaControllerClient64.dll are all present.
 
 Accessible window does not open:
-  The window only opens when a game starts. Make sure you are
-  in an active game (not the lobby).
+  Each window opens with the thing it belongs to: the lobby window
+  when you connect, the waiting room when you sit at a table, the
+  game window when a game starts. If none of them appears at all,
+  the agent is not running - check the launcher checkbox and the
+  JAR, as above.
+
+The keyboard is in the wrong window:
+  Alt+Tab reaches the accessible window. If that keeps happening at
+  the same point, say where, and send xmage-access.log - it records
+  every window that asks for the keyboard and every hand-over.
+
+Reporting a problem:
+  The agent writes xmage-access.log into the folder XMage runs in
+  (usually xmage\mage-client), or into your home folder if that one
+  cannot be written. It starts fresh at every launch, so take a copy
+  before restarting the client. CHANGELOG.txt in this ZIP says which
+  version you have and what changed in it.
 
 Double speech (screen reader + SAPI both talking):
   This can happen if Tolk is sending to both your screen reader

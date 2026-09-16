@@ -1,0 +1,340 @@
+XMage Access - Changelog
+========================
+
+What changed in each release, newest first.
+
+Every release is a drop-in replacement: put the new
+xmage-access-0.1.0.jar into xmage/mage-client/lib/ over the old one.
+Nothing else in this ZIP has to be copied again unless a release says
+so. The JAR keeps the name xmage-access-0.1.0.jar in every release -
+the launcher scripts look for that name, so it never changes. The
+release you have is the one at the top of this file.
+
+The full history, with the reasoning behind every change, is at
+github.com/CatalystForChaos/xmage-access.
+
+
+v0.1.14 - 16 September 2026
+---------------------------
+
+Windows instead of shortcuts. Four more places in XMage - the waiting
+room, drafts, tournaments and the news page - now have an accessible
+window of their own, built like the lobby window: everything is a row
+in a list, reached with Tab and the arrow keys, acted on with Enter.
+A lot of shortcuts are gone because of that; they are listed under
+"Shortcuts removed" below. The keyboard also finds its way back to
+the right window on its own now.
+
+New
+
+- Waiting room window. Creating or joining a table opens "XMage
+  Accessible Waiting Room" instead of leaving you in XMage's silent
+  dialog. Four lists: Table (kind of table, game type, deck type,
+  seats taken, state, owner), Seats (one row per seat with player
+  name and player type, D reads the whole entry), Actions (Start the
+  game or Start the tournament for the table owner, Leave the table
+  for everyone) and Chat. Players joining or leaving and the table
+  becoming ready are announced. Seats cannot be moved up or down from
+  here; XMage's own buttons for that are not offered.
+
+- Draft window. A draft opens "XMage Accessible Draft" with three
+  lists: Draft (pack, pick number, time remaining, how many cards are
+  in the booster, how many you have picked), Booster and Your Picks.
+  Enter in the booster picks the card. A new pack announces itself
+  with the first card in it.
+
+- Tournament window. A tournament opens "XMage Accessible
+  Tournament" with Tournament (name, type, state, how many players
+  and matches), Standings, Matches and Chat, plus a box to type into
+  the tournament chat. Enter watches a match that is being played
+  right now.
+
+- The news page is a window. XMage's "What's new" dialog draws its
+  page in a web view, where a screen reader finds nothing at all - on
+  the first launch after a news update the client simply seemed to
+  stop responding. It now opens "XMage Access - What's new": the page
+  as one row per block, headings ending in "heading" and lines with a
+  link ending in "link", a Sections list to jump from heading to
+  heading, and an Actions list to open the page in your browser, copy
+  it, or close it. Enter on a line with a link opens that link in
+  your browser. Escape closes.
+
+- Game actions from the keyboard. Everything XMage hides in the
+  right-click menu of the play area is reachable now: Ctrl+Shift+F3
+  to F11 mirror XMage's own F3 to F11 skip keys, which are dead while
+  you are in the accessible window; Ctrl+Shift+H holds priority; and
+  Ctrl+K opens the rest as one filterable list - the skip actions,
+  the three mana payment options, the auto-answer resets, rolling
+  back 1 to 3 turns, viewing a player's deck or sideboard, asking for
+  or granting permission to see hand cards, conceding the game or the
+  match, and stopping a spectated game. Conceding and stopping ask
+  first.
+
+- Five dialogs that used to say nothing: the join table dialog, the
+  add lands dialog, XMage's error dialog, registration, and password
+  reset.
+
+- A log file. The agent writes xmage-access.log next to the client
+  (the folder XMage runs in, or your home folder if that one cannot
+  be written), starting a new one at every launch. Launched through
+  XMage's own launcher the client has no console, so this file is the
+  only diagnostic there is - send it with a bug report.
+
+Changed
+
+- The agent takes no keys inside XMage's own window any more. Its
+  shortcuts answer while one of its own windows is in front; XMage's
+  window keeps its keyboard to itself. The exceptions are Ctrl+Q to
+  quit and the shortcuts of XMage's own dialogs, which have no
+  accessible window of their own.
+
+- An accessible window takes the keyboard when it opens. Before, a
+  window that opened behind XMage's frame got neither the focus nor
+  any of its shortcuts, and you had to Alt+Tab to it.
+
+- After a match, and whenever one of the agent's windows closes, the
+  keyboard goes to the accessible window of whatever XMage now shows
+  in front - after a game that is usually the lobby. XMage does not
+  return to the lobby by itself, it returns to whichever pane was in
+  front before, so the agent walks its panes front to back and takes
+  the first one that still has a window.
+
+- Lists no longer re-read the selected row when they refresh. Every
+  list is refreshed on a timer, and it used to be emptied and
+  refilled, which moved the selection off its row and back again -
+  something screen readers announce. Rows are replaced in place now.
+  A row that stands for something you can act on - a card, a button,
+  a match - and changes under the cursor is read out on purpose; rows
+  that are only information - the draft clock, chat, the game log -
+  change silently.
+
+- Announcements no longer name shortcuts that were removed. The
+  choices they used to name are rows in the Actions list.
+
+Shortcuts removed
+
+All of these only spoke a row that the arrow keys now reach:
+
+- In the lobby: Ctrl+G, Ctrl+J, Ctrl+N, Ctrl+Up, Ctrl+Down and the
+  rest of the lobby's thirteen keys. Open games are the Open Games
+  list; New Game, New Tournament, Open Deck Editor, Download Images,
+  Preferences and Connect / Disconnect are rows in Actions.
+- In the join table dialog: everything except Ctrl+D for the deck.
+- In a game: the hand cursor (Ctrl+Left, Ctrl+Right, Ctrl+Enter,
+  Ctrl+D), the battlefield cursor (Ctrl+Shift+Left, Ctrl+Shift+Right,
+  Ctrl+Shift+Up, Ctrl+Shift+Down, Ctrl+Shift+Enter, Ctrl+Shift+D),
+  the buttons (Ctrl+1, Ctrl+2, Ctrl+3), undo (Ctrl+Z), targets and
+  abilities (Ctrl+T, Ctrl+Shift+1 to Ctrl+Shift+9) and jumping to the
+  chat box (Ctrl+M). The zone reads Ctrl+F1 to Ctrl+F11, the game log
+  reads, Ctrl+Shift+M, Ctrl+K and the skip keys stay.
+- In drafts and tournaments: Ctrl+R, Ctrl+T, Ctrl+M and Ctrl+F1.
+  What they read is the first list of each window now.
+- In the waiting room: Ctrl+Enter and Ctrl+Shift+I.
+
+Fixed
+
+- Deck editor filters inverted themselves and could take the client
+  down. Ctrl+1 for White switched White off and every other colour
+  on, because the click the agent sent carried the Ctrl key, which
+  XMage reads as "select all the others". With every filter on and no
+  set or search term, XMage answers with its whole card database -
+  92,030 printings, each built into a card object on the drawing
+  thread - and resetting the filters did that eighteen times over.
+  A filter now changes one button and runs one pass.
+
+- Ctrl+A in the deck editor did nothing. Swing consults a list's own
+  keys before the window's, and a list binds Ctrl+A to "select all",
+  so Add Lands never fired. It is bound on the lists themselves now.
+
+- XMage's random packs selector is left alone. It is usable through
+  the Java Access Bridge, so the agent no longer speaks or takes keys
+  in it.
+
+
+v0.1.13 - 27 August 2026
+------------------------
+
+One deck editor improvement, plus a build safeguard.
+
+- Ctrl+E in the deck editor opens an accessible set list instead of
+  asking you to type a set name. Every entry is spoken while you
+  browse with Up and Down; PageUp, PageDown, Home and End work too.
+  Typing letters narrows the list, Backspace widens it again, Enter
+  picks, Escape cancels.
+- Picking a set lists all of its cards, 100 per page. Ctrl+T and
+  Ctrl+Shift+T still cycle sets one by one.
+- The picker resolves the chosen set by name at the moment you pick
+  it, so XMage's synthetic "Multiple sets selected" entry can no
+  longer shift the list and land you on the wrong set.
+- Build: the JAR is compiled against the real Java 8 API when it is
+  built on a newer JDK. Before, a call to a Java 9 or later API could
+  compile cleanly and then fail at runtime on the Java 8 that XMage
+  requires.
+
+
+v0.1.12 - 16 July 2026
+----------------------
+
+In-game chat, and two deck editor features.
+
+- In-game chat, finally reachable. The accessible game window has a
+  "Send Game Chat Message" box at the bottom: type and press Enter to
+  send to the chat of the running game, the one your opponent sees.
+  Before, only the server-wide chat in the lobby could be reached.
+- A Chat list in the game window with the last 10 player messages.
+  Incoming messages are still announced as they arrive, and
+  Ctrl+Shift+M reads the last 5.
+- Deck editor: search results are shown 100 per page, with "Next
+  page" and "Previous page" entries at the ends of the list. The
+  announcement says where you are ("Page 2 of 6. Results 101 to 200
+  of 543.") and puts you on the first card of the page. Your page is
+  kept while you add and remove cards.
+- Deck editor: Ctrl+E browses a whole set.
+
+
+v0.1.11 - 8 July 2026
+---------------------
+
+A full bug sweep.
+
+- Every dialog ever opened used to leak its keyboard hook. Handlers
+  whose dialog has closed are swept up now, so keys, timers and chat
+  listeners are released instead of piling up for the whole session.
+  Dialogs XMage reuses, such as Download Images, are announced again
+  the next time they open.
+- Choice dialogs own their shortcuts during a game. Confirming a scry
+  selection used to play a card from your hand, and Ctrl+1 on a
+  concede prompt clicked the game's OK button instead.
+- Lobby shortcuts no longer fire underneath a modal dialog.
+- Closing the accessible game window resets the state and a fresh
+  window opens for the next game; it used to hide for good.
+- Switching tabs during a game no longer announces "Game ended." and
+  wipes the game window.
+- The accessible lobby window comes back after a game instead of
+  disappearing the first time the lobby is hidden.
+- A momentary failure to read the game id no longer triggers a
+  spurious "New game." and a full state reset.
+- Draft: a failed display refresh after a pick no longer reports
+  "Error picking card" when the pick had already been sent.
+- Reconnecting announces the lobby again.
+- Windows SAPI speech is fast. One persistent speech worker replaces
+  a new PowerShell process per utterance, which had added one to two
+  seconds to every announcement and let announcements overlap.
+- Hybrid, Phyrexian, tap, snow and energy mana symbols are spoken as
+  words instead of raw braces, and revealed-card dialogs speak mana
+  costs properly.
+- HTML entities are no longer decoded twice, and chat messages are
+  split per line again.
+- Escape returns the focus to XMage's real window instead of an
+  arbitrary one.
+
+
+v0.1.10 - 20 May 2026
+---------------------
+
+An audit pass: leaks, speech and speed.
+
+- Speech never blocks the client. Every engine call runs on a
+  background thread, a burst of announcements collapses to the latest
+  one, and identical text within 250 milliseconds is dropped.
+- Listeners, timers and child processes are released on shutdown.
+- Reflection lookups are cached, so the polling that watches the game
+  state costs almost nothing.
+- A debug log channel, switched on with -Dxmageaccess.log=debug.
+
+
+v0.1.9 - 25 March 2026
+----------------------
+
+- Closing the accessible game window wipes all cached game state, so
+  opening it again starts clean. Useful if announcements ever get out
+  of step with the game.
+
+
+v0.1.8 - 25 March 2026
+----------------------
+
+- Ctrl+F2 and the other read commands no longer report turn, life
+  totals or phase from the previous game of a match. Game data is
+  read fresh each time a key fires, not only on the poll cycle.
+- The accessible game window reopens for the next game of a match. It
+  was disposed when a game ended and never came back.
+
+
+v0.1.7 - 25 March 2026
+----------------------
+
+- Lobby: joining, watching or reading a game that disappeared between
+  two refreshes no longer throws an error or acts on the wrong game.
+  It says "Game list has changed" instead.
+
+
+v0.1.6 - 25 March 2026
+----------------------
+
+- Nineteen handlers leaked their keyboard hooks. The hooks piled up
+  across dialogs and games and fired for components that no longer
+  existed; they are removed now when a handler detaches.
+- The game window and the deck editor window stop their timers when
+  they close, sideboarding no longer stacks up refresh timers when
+  cards are moved quickly, and the tournament timer stops on detach.
+- The chat listener is removed with the handler that added it.
+- A card with no mana cost no longer crashes a list refresh.
+- Cancelling speech on Linux no longer leaves zombie processes.
+
+
+v0.1.5 - 25 March 2026
+----------------------
+
+- Ctrl+F2 and the other reads reported the previous game's data.
+  XMage replaces its game data object when a new game starts, and the
+  agent was holding on to the old one.
+
+
+v0.1.4 - 20 March 2026
+----------------------
+
+- Type-ahead in the lists is suppressed properly. v0.1.3 removed it
+  where Swing installs its own handler first, so it kept working; the
+  lists now intercept typed keys before any listener sees them.
+
+
+v0.1.3 - 20 March 2026
+----------------------
+
+- Typing a letter in a list no longer moves the selection. Pressing D
+  to read a card's detail used to jump to the nearest card starting
+  with D at the same time. Arrow keys and shortcuts are unaffected.
+
+
+v0.1.2 - 16 March 2026
+----------------------
+
+- Game state resets between the games of a match, for good. The agent
+  follows the game's id, which XMage changes for every game, and
+  wipes life totals, turn, phase, stack and hand when it changes. The
+  turn-counter guess of v0.1.1 could miss.
+
+
+v0.1.1 - 9 March 2026
+---------------------
+
+- Life totals, turn, phase and stack are reset when a second game
+  starts at the same table, instead of producing announcements like
+  "Player gained 20 life" from the difference to the first game.
+
+
+v0.1.0 - 23 February 2026
+-------------------------
+
+First public release. A Java agent that adds screen reader support to
+the XMage client without changing XMage itself: NVDA, JAWS and
+Windows SAPI on Windows, VoiceOver on macOS.
+
+Covered at release: the connect dialog, the lobby with an accessible
+window, new game and new tournament, the deck editor, sideboarding,
+drafts and the tournament panel, gameplay with prompts, hand,
+battlefield, stack, targets, chat and phase announcements, all the
+choice dialogs (pick one, pick a number, checkboxes, piles,
+distribute), download images, preferences, revealed cards, and Ctrl+Q
+to quit.
