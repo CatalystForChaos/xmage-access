@@ -1,0 +1,15 @@
+# Line endings for the files that ship, and for the script that ships them.
+# Releases are cut on Windows with core.autocrlf true, which turns LF blobs
+# into CRLF in the working copy - and dist/ is copied into the release ZIP
+# verbatim. macOS shell scripts must keep LF (see make-release-zip.sh), and
+# so must that script itself, since Git Bash chokes on CRLF in a shell file.
+*.sh       text eol=lf
+*.command  text eol=lf
+
+# Windows scripts keep CRLF.
+*.cmd      text eol=crlf
+*.bat      text eol=crlf
+
+# Never touched.
+*.jar      binary
+*.dll      binary
