@@ -33,6 +33,20 @@ mkdir -p "$stage/xmage-accessible"
 cp -r dist/. "$stage/xmage-accessible/"
 rm -rf "$stage/xmage-accessible/META-INF"
 
+# The .command scripts are macOS shell scripts and must go out with LF
+# endings. git stores them that way, but a Windows checkout turns them
+# into CRLF (core.autocrlf), and releases are cut on Windows - v0.1.13's
+# bundle shipped "#!/bin/bash\r", which macOS reads as an interpreter
+# name ending in a carriage return and refuses to run. Stripping the CRs
+# here makes the ZIP right whoever builds it. The .cmd and .bat files
+# keep CRLF; that is what Windows expects.
+for script in "$stage/xmage-accessible"/*.command; do
+    [ -f "$script" ] || continue
+    tr -d '\r' < "$script" > "$script.lf"
+    mv "$script.lf" "$script"
+    chmod +x "$script"
+done
+
 "$jar" cfM "$out" -C "$stage" xmage-accessible
 rm -rf "$stage"
 
