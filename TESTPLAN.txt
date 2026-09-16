@@ -53,7 +53,7 @@ L1  NEU - Warteraum für ein Spiel
               startet das Spiel, danach meldet sich das Spielfenster.
               Ctrl+Enter und Ctrl+Shift+I aus dem alten Warteraum tun nichts
               mehr.
-    Ergebnis: OFFEN
+    Ergebnis: ok
     Notiere bitte zwei Dinge: ob der erste Satz "Seats not read yet" sagt,
     weil XMage die Plätze noch nicht geladen hatte, und ob zwischen Start
     und Spielbeginn die Lobby etwas sagt. Das soll sie nicht.
@@ -65,14 +65,14 @@ L2  NEU - Warteraum für einen Draft
     Erwartet: Wie L1, der erste Satz beginnt mit "Waiting room for a
               tournament". Nach dem Start holt sich das Draftfenster die
               Tastatur, der Fokus steht in "Booster".
-    Ergebnis: OFFEN
+    Ergebnis: ok.
 
 L3  NEU - Warteraum verlassen
     Tun:      Einen Tisch anlegen, im Warteraum Enter auf "Leave the table".
               Dann nichts drücken.
     Erwartet: "Left the table." Danach ist die Tastatur wieder in der Lobby,
               in der Liste, in der du dort zuletzt warst.
-    Ergebnis: OFFEN
+    Ergebnis: ok
 
 L4  NEU - ein zweiter Mensch am Tisch
     Tun:      Nur wenn jemand mitspielt: einen Tisch für zwei Menschen
@@ -89,7 +89,7 @@ L5  Lobby nach dem Match, mit Deckeditor davor (war K2)
               ein Spiel spielen oder aufgeben und nach dem Ende nichts
               drücken.
     Erwartet: Nach dem Spiel ist die Tastatur in der Lobby, ohne Alt+Tab.
-    Ergebnis: OFFEN
+    Ergebnis: ok
     Warum noch einmal: Du hast D10 und J2 als OK eingetragen, aber das
     Logfile vom 15. September sagt nach dem Spiel "handing the keyboard to
     nobody". Die wahrscheinliche Ursache: XMage holt nach einem Spiel das
